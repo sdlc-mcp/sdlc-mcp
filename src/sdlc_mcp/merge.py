@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from .config import SourceConfig
 from .hierarchy import ResolvedHierarchy
@@ -67,5 +66,3 @@ def merge_content_for_category(hierarchy: ResolvedHierarchy, category: str) -> C
 
     filename = category if category.endswith(".md") else f"{category}.md"
     return merged.get(filename)
-
-
