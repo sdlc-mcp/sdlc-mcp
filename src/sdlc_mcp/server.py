@@ -10,6 +10,7 @@ from fastmcp import FastMCP
 from fastmcp.tools import Tool
 
 from .config import Config, load_config
+from .discovery import list_repos as _list_repos, list_tools_for_repo as _list_tools_for_repo
 from .hierarchy import resolve_hierarchy
 from .merge import merge_content, merge_content_for_category
 
@@ -41,7 +42,6 @@ mcp = FastMCP("sdlc-mcp", auth=_build_auth())
 _config: Config | None = None
 
 
-
 def get_config() -> Config:
     global _config
     if _config is None:
@@ -61,6 +61,9 @@ def init_config_from_path(
     global _config
     _config = load_config(repo_path=repo_path, config_paths=config_paths)
     register_content_tools()
+    register_discovery_tools()
+    total = sum(1 for k in mcp.local_provider._components if k.startswith("tool:"))
+    logger.info("Registered %d tools total", total)
 
 
 def _scope_has_category(scope, category: str) -> bool:
@@ -91,14 +94,51 @@ def _make_content_tool(category: str, description: str):
                     available.append(f"{s.name} (repos: {', '.join(s.repos)})")
             if available:
                 return (
-                    f"No matching content for {category!r}."
-                    f" Available for: {'; '.join(available)}"
+                    f"No matching content for {category!r}. Available for: {'; '.join(available)}"
                 )
             return f"No content found for {category!r}"
 
         return item.content
 
     tool_fn.__name__ = f"{category.replace('-', '_')}"
+    tool_fn.__qualname__ = tool_fn.__name__
+    return tool_fn
+
+
+def _make_list_repos_tool():
+    """Create a tool function that lists all configured repos."""
+
+    def tool_fn() -> str:
+        config = get_config()
+        repos = _list_repos(config)
+        if not repos:
+            return "No repo-specific scopes configured."
+        return "\n".join(repos)
+
+    tool_fn.__name__ = "list_repos"
+    tool_fn.__qualname__ = tool_fn.__name__
+    return tool_fn
+
+
+def _make_list_tools_for_repo_tool():
+    """Create a tool function that lists tools available for a given repo."""
+
+    def tool_fn(repo: str) -> str:
+        config = get_config()
+        tools = _list_tools_for_repo(config, repo)
+        if not tools:
+            return f"No tools found for repo {repo!r}."
+        lines = []
+        for t in tools:
+            if t.overrides:
+                lines.append(
+                    f"{t.name}: {t.description} (provided by: {t.provided_by}, overrides: {', '.join(t.overrides)})"
+                )
+            else:
+                lines.append(f"{t.name}: {t.description} (provided by: {t.provided_by})")
+        return "\n".join(lines)
+
+    tool_fn.__name__ = "list_tools_for_repo"
     tool_fn.__qualname__ = tool_fn.__name__
     return tool_fn
 
@@ -136,5 +176,21 @@ def register_content_tools() -> None:
     logger.info("Registered %d content tools", len(merged.items))
 
 
+def register_discovery_tools() -> None:
+    fn = _make_list_repos_tool()
+    tool = Tool.from_function(
+        fn,
+        name="list_repos",
+        description="List all repos that have repo-specific content configured",
+    )
+    mcp.add_tool(tool)
+    logger.info("Registered list_repos discovery tool")
 
-
+    fn = _make_list_tools_for_repo_tool()
+    tool = Tool.from_function(
+        fn,
+        name="list_tools_for_repo",
+        description="List available tools for a repo, showing which scope provides each and any overrides",
+    )
+    mcp.add_tool(tool)
+    logger.info("Registered list_tools_for_repo discovery tool")

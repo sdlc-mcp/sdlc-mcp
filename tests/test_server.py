@@ -3,7 +3,7 @@
 import asyncio
 
 from sdlc_mcp.config import Config, Scope, SourceConfig
-from sdlc_mcp.server import init_config, mcp, register_content_tools
+from sdlc_mcp.server import init_config, mcp, register_content_tools, register_discovery_tools
 from sdlc_mcp.sources import local as _local  # noqa: F401
 
 
@@ -89,3 +89,19 @@ def test_most_specific_description_wins(tmp_path):
     assert "Testing strategy" not in tools["testing"].description
 
 
+def test_list_repos_tool_registered(tmp_path):
+    _setup_config(tmp_path)
+    register_content_tools()
+    register_discovery_tools()
+
+    tool_names = [t.name for t in _list_tools()]
+    assert "list_repos" in tool_names
+
+
+def test_list_tools_for_repo_tool_registered(tmp_path):
+    _setup_config(tmp_path)
+    register_content_tools()
+    register_discovery_tools()
+
+    tool_names = [t.name for t in _list_tools()]
+    assert "list_tools_for_repo" in tool_names

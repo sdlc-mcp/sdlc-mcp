@@ -34,7 +34,7 @@ def _make_client(config_path: str) -> Client:
 def _write_md(directory, name, description, body):
     directory.mkdir(parents=True, exist_ok=True)
     (directory / f"{name}.md").write_text(
-        f"---\nname: {name}\ndescription: \"{description}\"\n---\n{body}\n"
+        f'---\nname: {name}\ndescription: "{description}"\n---\n{body}\n'
     )
 
 
@@ -47,7 +47,9 @@ def example_config(tmp_path):
     _write_md(org_dir, "code-review", "Code review", "# Code Review\nReview all PRs.")
     _write_md(team_dir, "testing", "API testing", "# API Testing\n90% coverage.")
 
-    config_path = _make_config(tmp_path, f"""
+    config_path = _make_config(
+        tmp_path,
+        """
 - name: platform
   sources:
     - type: local
@@ -58,7 +60,8 @@ def example_config(tmp_path):
   sources:
     - type: local
       path: content/teams/api/
-""")
+""",
+    )
     return config_path
 
 
@@ -109,6 +112,75 @@ class TestStdioCallTools:
                 result = await client.call_tool("code_review", {})
                 text = result.content[0].text
                 assert "Code Review" in text
+
+        _run(run())
+
+
+class TestStdioDiscoveryTools:
+    def test_list_repos_registered(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                tools = await client.list_tools()
+                names = {t.name for t in tools}
+                assert "list_repos" in names
+
+        _run(run())
+
+    def test_list_tools_for_repo_registered(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                tools = await client.list_tools()
+                names = {t.name for t in tools}
+                assert "list_tools_for_repo" in names
+
+        _run(run())
+
+    def test_list_repos_returns_scoped_repos(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                result = await client.call_tool("list_repos", {})
+                text = result.content[0].text
+                assert "api-gateway" in text
+
+        _run(run())
+
+    def test_list_repos_excludes_unscoped(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                result = await client.call_tool("list_repos", {})
+                text = result.content[0].text
+                assert "platform" not in text
+
+        _run(run())
+
+    def test_list_tools_for_known_repo(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                result = await client.call_tool("list_tools_for_repo", {"repo": "api-gateway"})
+                text = result.content[0].text
+                assert "testing" in text
+                assert "code-review" in text
+
+        _run(run())
+
+    def test_list_tools_for_repo_shows_override(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                result = await client.call_tool("list_tools_for_repo", {"repo": "api-gateway"})
+                text = result.content[0].text
+                # testing is overridden by api scope, should indicate that
+                assert "api" in text
+                assert "platform" in text
+
+        _run(run())
+
+    def test_list_tools_for_unknown_repo(self, example_config):
+        async def run():
+            async with _make_client(example_config) as client:
+                result = await client.call_tool("list_tools_for_repo", {"repo": "unknown-repo"})
+                text = result.content[0].text
+                assert "testing" in text
+                assert "code-review" in text
 
         _run(run())
 
