@@ -39,7 +39,15 @@ uv run pytest
 
 **Content sources:** Pluggable adapters that read markdown files. `local` reads from a directory. `git` clones a repo and reads from a path within it.
 
-**Merging:** "Most specific wins." If the team level has `testing.md` and the org level also has `testing.md`, the team version is used. Content that only exists at one level passes through unchanged. Merging is by filename within a category, not by concatenation.
+**Scope resolution:** A scope matches a repo three ways: no `repos` filter (matches all), repo name in `repos` list, or repo name equals scope name. All matching scopes stack in config order. The org prefix is stripped (`ansible/awx` → `awx`).
+
+**Merging:** Configurable per-scope via `strategy` field (default: `overwrite`). Four strategies:
+- `overwrite` — full file replacement (default, backwards compatible)
+- `append` — concatenate after existing content
+- `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters)
+- `template` — fill `{NAME}` placeholders with `@NAME` blocks. Sigils: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (first filler, strip if unfilled), `{!?FOO}` (last filler, strip if unfilled)
+
+The first scope to provide a file is always the base. Strategy only applies to subsequent scopes. Different scopes can use different strategies for the same file.
 
 **MCP tools:** Content tools are auto-generated from markdown frontmatter (one tool per artifact).
 
@@ -56,7 +64,8 @@ src/sdlc_mcp/
     __init__.py      # Source protocol + frontmatter parsing
     local.py         # Local directory source
     git.py           # Git repo source
-  merge.py           # Content merging logic
+  merge.py           # Content merging with pluggable strategies
+  discovery.py       # Repo and tool discovery (list_repos, list_tools_for_repo)
 ```
 
 ## Conventions
@@ -82,4 +91,4 @@ The authorized redirect URI in GCP Console must be set to `<SDLC_MCP_BASE_URL>/a
 
 ## Implementation Status
 
-Phases 1-3 are complete (skeleton, git source, real content). Config includes, dynamic tool registration from frontmatter, and the scope-based config model are all implemented. See docs/design.md for the full design.
+Phases 1-3.5 are complete (skeleton, git source, real content, discovery tools, merge strategies). Config includes, dynamic tool registration from frontmatter, the scope-based config model, pluggable merge strategies, and discovery tools are all implemented. See docs/design.md for the full design.

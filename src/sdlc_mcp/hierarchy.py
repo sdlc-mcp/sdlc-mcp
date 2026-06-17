@@ -19,6 +19,7 @@ class HierarchyLevel:
     level: str
     name: str
     sources: list[SourceConfig] = field(default_factory=list)
+    strategy: str = "overwrite"
 
 
 @dataclass
@@ -49,6 +50,7 @@ def resolve_hierarchy(config: Config, repo: str) -> ResolvedHierarchy:
                     level=scope.name,
                     name=scope.name,
                     sources=list(scope.sources),
+                    strategy=scope.strategy,
                 )
             )
 

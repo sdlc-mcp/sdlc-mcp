@@ -53,12 +53,12 @@ The server is generic. It doesn't know about any specific organization. It knows
 1. Load config (a YAML list of named scopes with optional includes)
 2. Read content from pluggable sources (git repos, local dirs)
 3. Resolve a hierarchy (filter scopes by repo name)
-4. Merge content at each level (most specific wins)
+4. Merge content at each level (pluggable strategy per scope)
 5. Serve the result via auto-generated MCP tools
 
 ### Config Format
 
-A config file is a YAML list of named scopes, processed top to bottom. Each scope has a `name`, optional `sources`, optional `repos` filter, and optional `include` list. Later scopes override earlier ones for same-name content files.
+A config file is a YAML list of named scopes, processed top to bottom. Each scope has a `name`, optional `sources`, optional `repos` filter, optional `strategy`, and optional `include` list. The default strategy is `overwrite` for backwards compatibility.
 
 ```yaml
 - name: acme
@@ -68,12 +68,14 @@ A config file is a YAML list of named scopes, processed top to bottom. Each scop
 
 - name: api
   repos: [api-gateway, api-auth]
+  strategy: merge-append
   sources:
     - type: local
       path: content/teams/api/
 
 - name: frontend
   repos: [web-app, design-system]
+  strategy: append
   sources:
     - type: local
       path: content/teams/frontend/
@@ -82,6 +84,110 @@ A config file is a YAML list of named scopes, processed top to bottom. Each scop
 Scopes with a `repos` filter only apply when the requested repo matches. The org prefix is stripped during matching, so `acme/api-gateway`, `fork/api-gateway`, and `api-gateway` all match `repos: [api-gateway]`. Scopes also match by name, so `repo: "api"` matches the `api` scope directly.
 
 Includes resolve `file://` (local paths, absolute or relative) and `git+<url>` (clones any git repo) URIs. Included configs are processed before the including scope, so they provide the base that later scopes override.
+
+### Scope Resolution
+
+A scope matches a repo in three ways:
+
+1. **No `repos` filter** — applies to every repo (org-wide content)
+2. **Repo name in the `repos` list** — explicit membership
+3. **Repo name equals scope name** — implicit match
+
+All matching scopes stack in config order. A repo can match multiple scopes, and each one layers on top of the previous. The first scope to provide a file is the base; subsequent scopes apply their strategy.
+
+Example with five scopes:
+
+```yaml
+- name: scope0                   # unscoped — matches all
+- name: scope1                   # unscoped — matches all
+- name: scope2
+  repos: [repo-a]                # matches repo-a only
+- name: scope3
+  repos: [repo-b]                # matches repo-b only
+- name: scope4
+  repos: [repo-a]                # matches repo-a only
+```
+
+| Query | Matching scopes | Winner (overwrite) |
+|-------|----------------|--------------------|
+| `repo-a` | scope0, scope1, scope2, scope4 | scope4 (last match) |
+| `repo-b` | scope0, scope1, scope3 | scope3 (last match) |
+| (no repo) | scope0, scope1 | scope1 (last match) |
+
+### Merge Strategies
+
+The `strategy` field on a scope controls how its content combines with the accumulated result from prior scopes. The first scope to provide a file is always the base — strategy only applies to incoming scopes.
+
+#### `overwrite` (default)
+
+Full file replacement. The incoming scope's version completely replaces the existing content. This is the original behavior.
+
+#### `append`
+
+Concatenates the incoming content after the existing content. No labels, no heading matching — just appended in scope order.
+
+#### `merge-append`
+
+Appends content under matching markdown heading paths. Headings are matched hierarchically: `## Testing > ### Coverage` is a different key than `## Deploy > ### Coverage`. Content is appended under matching headings; unmatched sections are appended at the end of the document.
+
+```yaml
+# Org file (testing.md):
+## Testing
+80% coverage minimum.
+### Coverage
+Unit test coverage target.
+
+# Team file (testing.md, strategy: merge-append):
+## Testing
+### Coverage
+90% for API surface.
+```
+
+Result: "90% for API surface." is appended under `## Testing > ### Coverage`, after "Unit test coverage target." The rest of the document is untouched.
+
+#### `template`
+
+The base file declares placeholder slots using `{NAME}` syntax. Incoming scopes fill them with `@NAME` blocks.
+
+```yaml
+# Org file (testing.md):
+## Testing
+{COVERAGE_TARGET} minimum coverage.
+{?TEAM_CONVENTIONS}
+
+# Team file (testing.md, strategy: template):
+@COVERAGE_TARGET
+90%
+
+@TEAM_CONVENTIONS
+Contract tests required for all API endpoints.
+```
+
+`@NAME` starts a filler block. Content runs until the next `@NAME` or end of file.
+
+**Placeholder sigils:**
+
+| Sigil | Fill behavior | If unfilled |
+|-------|--------------|-------------|
+| `{FOO}` | First filler wins | Left in output |
+| `{!FOO}` | Last filler wins | Left in output |
+| `{?FOO}` | First filler wins | Stripped |
+| `{!?FOO}` | Last filler wins | Stripped |
+
+Filled content can introduce new placeholders for downstream scopes to resolve (cascading).
+
+#### Mixed strategies
+
+Different scopes can use different strategies for the same file. Each scope's strategy applies to the accumulated result from all prior scopes:
+
+```yaml
+- name: platform              # base
+- name: division
+  strategy: append             # appends to platform's content
+- name: api
+  repos: [api-gateway]
+  strategy: overwrite          # replaces everything (platform + division)
+```
 
 ### MCP Tools
 
@@ -119,8 +225,11 @@ Source reader fetches content from each matching scope, in order:
   - api: testing.md, api-conventions.md
   |
   v
-Merger combines with "most specific wins":
-  - api's testing.md overrides acme's testing.md
+Merger combines using each scope's strategy:
+  - acme is the base (first provider, no strategy applies)
+  - api's testing.md merges with acme's testing.md using api's strategy
+    (overwrite replaces, append concatenates, merge-append merges by heading,
+     template fills placeholders)
   - acme's code-review.md passes through (no api override)
   |
   v
@@ -167,6 +276,13 @@ The architecture is designed so that SEP-2640 support is an additive layer, not 
 - Dynamic tool registration from markdown frontmatter
 - Repo name matching (org prefix stripped, scope name matching)
 - Content as individual artifact files with frontmatter
+
+### Phase 3.5: Discovery tools and merge strategies (done)
+- `list_repos` tool: returns all repos with repo-specific scopes
+- `list_tools_for_repo(repo)` tool: shows per-tool provenance and overrides
+- Pluggable merge strategies: overwrite (default), append, merge-append, template
+- Template placeholder sigils: `{FOO}`, `{!FOO}`, `{?FOO}`, `{!?FOO}`
+- `@NAME` filler block syntax for template strategy
 
 ### Phase 4: SEP-2640 skill:// resource layer
 - Register `skill://` resources for workflow content

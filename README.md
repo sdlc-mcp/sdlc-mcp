@@ -27,9 +27,57 @@ The config is a YAML list of named scopes, processed top to bottom. Each scope p
       path: content/teams/api/
 ```
 
-If both `acme` and `api` have a `testing.md`, the `api` version wins for matching repos. Everything else inherits from the org level. The merge happens server-side. The agent never sees conflicting content, just the right answer.
+If both `acme` and `api` have a `testing.md`, the default behavior is that the `api` version wins for matching repos (overwrite). But you can control this with merge strategies.
 
 Scopes can also include external configs via `file://` or `git+<url>` URIs, so content can be spread across multiple repos, public and private.
+
+## Merge Strategies
+
+By default, later scopes overwrite earlier ones. But sometimes you want to layer content instead of replacing it. The `strategy` field controls this per-scope:
+
+```yaml
+- name: acme                          # base — no strategy needed
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway]
+  strategy: merge-append              # append under matching headings
+  sources:
+    - type: local
+      path: content/teams/api/
+```
+
+| Strategy | What it does |
+|----------|-------------|
+| `overwrite` | Replaces the file entirely (default) |
+| `append` | Concatenates after the existing content |
+| `merge-append` | Appends under matching markdown headings (`## Testing > ### Coverage` is a distinct path from `## Deploy > ### Coverage`) |
+| `template` | Fills `{PLACEHOLDER}` slots in the base file with `@PLACEHOLDER` blocks from the incoming scope |
+
+### Template example
+
+Org file declares slots, team fills them:
+
+```markdown
+# Testing (org)
+All teams must achieve {COVERAGE_TARGET} code coverage.
+{?TEAM_CONVENTIONS}
+```
+
+```markdown
+# Testing (team, strategy: template)
+@COVERAGE_TARGET
+90%
+
+@TEAM_CONVENTIONS
+Contract tests required for all API endpoints.
+```
+
+Placeholder sigils control fill behavior: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (strip if unfilled), `{!?FOO}` (last filler, strip if unfilled).
+
+See the [design doc](docs/design.md) for full details on scope resolution and strategy semantics.
 
 ## How Content Becomes Tools
 
