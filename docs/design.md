@@ -143,7 +143,19 @@ Unit test coverage target.
 90% for API surface.
 ```
 
-Result: "90% for API surface." is appended under `## Testing > ### Coverage`, after "Unit test coverage target." The rest of the document is untouched.
+Result:
+
+```markdown
+## Testing
+80% coverage minimum.
+### Coverage
+Unit test coverage target.
+
+api specific overrides:
+90% for API surface.
+```
+
+Appended content is prefixed with `scope specific overrides:` so the agent knows which scope contributed each addition. The rest of the document is untouched.
 
 #### `template`
 

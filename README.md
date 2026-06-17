@@ -53,7 +53,7 @@ By default, later scopes overwrite earlier ones. But sometimes you want to layer
 |----------|-------------|
 | `overwrite` | Replaces the file entirely (default) |
 | `append` | Concatenates after the existing content |
-| `merge-append` | Appends under matching markdown headings (`## Testing > ### Coverage` is a distinct path from `## Deploy > ### Coverage`) |
+| `merge-append` | Appends under matching markdown headings (`## Testing > ### Coverage` is a distinct path from `## Deploy > ### Coverage`). Appended content is prefixed with `scope specific overrides:` for attribution. |
 | `template` | Fills `{PLACEHOLDER}` slots in the base file with `@PLACEHOLDER` blocks from the incoming scope |
 
 ### Template example

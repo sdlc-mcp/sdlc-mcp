@@ -44,7 +44,7 @@ uv run pytest
 **Merging:** Configurable per-scope via `strategy` field (default: `overwrite`). Four strategies:
 - `overwrite` — full file replacement (default, backwards compatible)
 - `append` — concatenate after existing content
-- `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters)
+- `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters). Appended content is prefixed with `scope specific overrides:` for attribution.
 - `template` — fill `{NAME}` placeholders with `@NAME` blocks. Sigils: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (first filler, strip if unfilled), `{!?FOO}` (last filler, strip if unfilled)
 
 The first scope to provide a file is always the base. Strategy only applies to subsequent scopes. Different scopes can use different strategies for the same file.
