@@ -97,19 +97,20 @@ def _find_child(parent: _MdNode, heading: str, level: int) -> _MdNode | None:
     return None
 
 
-def _merge_nodes(existing: _MdNode, incoming: _MdNode) -> None:
+def _merge_nodes(existing: _MdNode, incoming: _MdNode, scope_name: str = "") -> None:
     inc_body = incoming.body.strip()
     if inc_body:
         ext_body = existing.body.rstrip()
+        labeled = f"{scope_name} specific overrides:\n{inc_body}" if scope_name else inc_body
         if ext_body:
-            existing.body = ext_body + "\n\n" + inc_body
+            existing.body = ext_body + "\n\n" + labeled
         else:
-            existing.body = inc_body
+            existing.body = labeled
 
     for inc_child in incoming.children:
         match = _find_child(existing, inc_child.heading, inc_child.level)
         if match:
-            _merge_nodes(match, inc_child)
+            _merge_nodes(match, inc_child, scope_name)
         else:
             existing.children.append(inc_child)
 
@@ -126,10 +127,10 @@ def _render_node(node: _MdNode) -> str:
     return "\n\n".join(p for p in parts if p)
 
 
-def _merge_append_content(existing_text: str, incoming_text: str) -> str:
+def _merge_append_content(existing_text: str, incoming_text: str, scope_name: str = "") -> str:
     existing_tree = _parse_md_tree(existing_text)
     incoming_tree = _parse_md_tree(incoming_text)
-    _merge_nodes(existing_tree, incoming_tree)
+    _merge_nodes(existing_tree, incoming_tree, scope_name)
     return _render_node(existing_tree)
 
 
@@ -223,7 +224,7 @@ def merge_content(hierarchy: ResolvedHierarchy) -> MergedContent:
                 merged.provenance[item.filename] = f"{level.level}:{level.name}"
             elif strategy == "merge-append":
                 existing = merged.items[item.filename]
-                existing.content = _merge_append_content(existing.content, item.content)
+                existing.content = _merge_append_content(existing.content, item.content, level.name)
                 merged.provenance[item.filename] = f"{level.level}:{level.name}"
             elif strategy == "template":
                 existing = merged.items[item.filename]

@@ -57,6 +57,9 @@ def test_matching_h2_heading(tmp_path):
     assert "80% coverage" in content
     assert "Contract tests required" in content
     assert "Use CI pipeline" in content
+    assert "api specific overrides:" in content
+    # Attribution appears before the appended content
+    assert content.index("api specific overrides:") < content.index("Contract tests required")
     # Contract tests should appear after 80% coverage (under same heading)
     assert content.index("80% coverage") < content.index("Contract tests required")
     # Deploy section untouched
@@ -98,6 +101,7 @@ def test_matching_h3_under_same_h2(tmp_path):
     assert "80% minimum" in content
     assert "90% for API surface" in content
     assert "Use test_ prefix" in content
+    assert "api specific overrides:" in content
     # 90% appended after 80% under ### Coverage
     assert content.index("80% minimum") < content.index("90% for API surface")
     # Naming section untouched
@@ -217,7 +221,9 @@ def test_body_text_under_h2_appended(tmp_path):
 
     assert "Org testing guidelines" in content
     assert "Team-specific additions" in content
-    assert content.index("Org testing guidelines") < content.index("Team-specific additions")
+    assert "api specific overrides:" in content
+    assert content.index("Org testing guidelines") < content.index("api specific overrides:")
+    assert content.index("api specific overrides:") < content.index("Team-specific additions")
 
 
 def test_h2_body_and_h3_children(tmp_path):
@@ -417,7 +423,7 @@ def test_new_h2_with_h3_children_appended_at_end(tmp_path):
 
 
 def test_three_scopes_append_to_same_h2(tmp_path):
-    """Three scopes all merge-append to same ## — all bodies present in order."""
+    """Three scopes all merge-append to same ## — all bodies present in order with attribution."""
     _write_md(tmp_path / "company", "testing.md", "## Testing\nCompany baseline.")
     _write_md(tmp_path / "org", "testing.md", "## Testing\nOrg additions.")
     _write_md(tmp_path / "team", "testing.md", "## Testing\nTeam additions.")
@@ -449,7 +455,12 @@ def test_three_scopes_append_to_same_h2(tmp_path):
     assert "Company baseline" in content
     assert "Org additions" in content
     assert "Team additions" in content
-    assert content.index("Company") < content.index("Org") < content.index("Team")
+    assert "platform specific overrides:" in content
+    assert "api specific overrides:" in content
+    assert content.index("Company") < content.index("platform specific overrides:")
+    assert content.index("platform specific overrides:") < content.index("Org additions")
+    assert content.index("Org additions") < content.index("api specific overrides:")
+    assert content.index("api specific overrides:") < content.index("Team additions")
 
 
 def test_three_scopes_each_appends_to_different_h3(tmp_path):
@@ -594,6 +605,9 @@ def test_five_scopes_merge_append_ordering(tmp_path):
     assert "Scope 2" in content
     assert "Scope 3" not in content
     assert "Scope 4" in content
+    assert "s1 specific overrides:" in content
+    assert "s2 specific overrides:" in content
+    assert "s4 specific overrides:" in content
 
     # Repo B: s0, s1, s3
     hierarchy = resolve_hierarchy(config, "repo-b")
@@ -604,6 +618,8 @@ def test_five_scopes_merge_append_ordering(tmp_path):
     assert "Scope 2" not in content
     assert "Scope 3" in content
     assert "Scope 4" not in content
+    assert "s1 specific overrides:" in content
+    assert "s3 specific overrides:" in content
 
     # No repo: s0, s1
     hierarchy = resolve_hierarchy(config, "")
@@ -612,6 +628,7 @@ def test_five_scopes_merge_append_ordering(tmp_path):
     assert "Scope 0" in content
     assert "Scope 1" in content
     assert "Scope 2" not in content
+    assert "s1 specific overrides:" in content
 
 
 def test_different_repos_append_under_different_headings(tmp_path):
@@ -650,6 +667,7 @@ def test_different_repos_append_under_different_headings(tmp_path):
     merged = merge_content(hierarchy)
     content = merged.get("testing.md").content
     assert "API testing additions" in content
+    assert "api specific overrides:" in content
     assert "Frontend deploy" not in content
 
     # web-app: Deploy gets frontend additions, Testing untouched
@@ -657,6 +675,7 @@ def test_different_repos_append_under_different_headings(tmp_path):
     merged = merge_content(hierarchy)
     content = merged.get("testing.md").content
     assert "Frontend deploy additions" in content
+    assert "frontend specific overrides:" in content
     assert "API testing" not in content
 
 
