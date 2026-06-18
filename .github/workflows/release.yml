@@ -40,13 +40,16 @@ jobs:
           if git ls-remote --tags origin | grep -q "refs/tags/${TAG}\$"; then
             echo "Tag ${TAG} already exists remotely, fetching it"
             git fetch origin tag "${TAG}"
+            git checkout "${TAG}"
           # Check if tag exists locally
           elif git rev-parse "${TAG}" >/dev/null 2>&1; then
-            echo "Tag ${TAG} already exists locally, skipping creation"
+            echo "Tag ${TAG} already exists locally, checking it out"
+            git checkout "${TAG}"
           else
             echo "Creating and pushing new tag ${TAG}"
             git tag "${TAG}"
             git push origin "${TAG}"
+            git checkout "${TAG}"
           fi
 
       - uses: actions/setup-python@v5
