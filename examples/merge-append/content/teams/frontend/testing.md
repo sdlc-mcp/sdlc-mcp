@@ -1,3 +1,5 @@
+# Testing Standards
+
 ## Coverage
 75% minimum for UI code (relaxed from org default).
 Visual regression tests required for all component changes.

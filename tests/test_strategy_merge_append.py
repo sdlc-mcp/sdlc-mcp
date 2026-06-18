@@ -938,3 +938,50 @@ def test_team_heading_not_in_org_appended_at_end(tmp_path):
     assert "## Monitoring" in content
     assert "Team monitoring" in content
     assert content.index("Org testing") < content.index("Monitoring")
+
+
+def test_org_and_team_each_have_unique_top_level_headings(tmp_path):
+    """Org has # Appendix A, team has # Appendix B — both appear, neither clobbers."""
+    _write_md(
+        tmp_path / "org",
+        "testing.md",
+        "# Testing Standards\n\n## Coverage\n80% minimum.\n\n# Appendix A\nThis is from the org.",
+    )
+    _write_md(
+        tmp_path / "team",
+        "testing.md",
+        "# Testing Standards\n\n## Coverage\n90% for APIs.\n\n# Appendix B\nThis is from the team.",
+    )
+
+    config = Config(
+        scopes=[
+            Scope(
+                name="platform",
+                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
+            ),
+            Scope(
+                name="api",
+                repos=["api-gateway"],
+                strategy="merge-append",
+                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
+            ),
+        ]
+    )
+
+    hierarchy = resolve_hierarchy(config, "api-gateway")
+    merged = merge_content(hierarchy)
+    content = merged.get("testing.md").content
+
+    # Coverage merged under matching heading
+    assert "80% minimum" in content
+    assert "90% for APIs" in content
+    assert content.index("80% minimum") < content.index("90% for APIs")
+
+    # Org appendix untouched
+    assert "# Appendix A" in content
+    assert "This is from the org" in content
+
+    # Team appendix appended at end (no match in org)
+    assert "# Appendix B" in content
+    assert "This is from the team" in content
+    assert content.index("Appendix A") < content.index("Appendix B")
