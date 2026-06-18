@@ -30,10 +30,24 @@ jobs:
       - name: Create and push tag (workflow_dispatch only)
         if: github.event_name == 'workflow_dispatch'
         run: |
+          set -e
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ github.event.inputs.tag }}
-          git push origin ${{ github.event.inputs.tag }}
+
+          TAG="${{ github.event.inputs.tag }}"
+
+          # Check if tag already exists remotely
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}\$"; then
+            echo "Tag ${TAG} already exists remotely, fetching it"
+            git fetch origin tag "${TAG}"
+          # Check if tag exists locally
+          elif git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "Tag ${TAG} already exists locally, skipping creation"
+          else
+            echo "Creating and pushing new tag ${TAG}"
+            git tag "${TAG}"
+            git push origin "${TAG}"
+          fi
 
       - uses: actions/setup-python@v5
         with:
@@ -45,10 +59,40 @@ jobs:
       - name: Build package
         run: python -m build
 
+      - name: Check if version exists on PyPI
+        id: pypi_check
+        run: |
+          VERSION=$(git describe --tags --exact-match 2>/dev/null || echo "unknown")
+          VERSION=${VERSION#v}  # Remove 'v' prefix
+          if curl -s "https://pypi.org/pypi/sdlc-mcp/$VERSION/json" | grep -q "\"version\""; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already exists on PyPI, skipping publish"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION does not exist on PyPI, will publish"
+          fi
+
       - name: Publish to PyPI
+        if: steps.pypi_check.outputs.exists == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
 
+      - name: Check if GitHub Release exists
+        id: release_check
+        run: |
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release for $TAG already exists, skipping creation"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release for $TAG does not exist, will create"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Create GitHub Release
+        if: steps.release_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           generate_release_notes: true
