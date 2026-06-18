@@ -1,0 +1,28 @@
+# Merge-append strategy: team content is appended under matching
+# markdown headings. Unmatched sections append at end of document.
+
+- name: platform
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway, api-auth]
+  strategy: merge-append
+  sources:
+    - type: local
+      path: content/teams/api/
+
+- name: frontend
+  repos: [web-app, design-system]
+  strategy: merge-append
+  sources:
+    - type: local
+      path: content/teams/frontend/
+
+- name: data-layer
+  repos: [db-service, migrations]
+  strategy: merge-append
+  sources:
+    - type: local
+      path: content/teams/data-layer/

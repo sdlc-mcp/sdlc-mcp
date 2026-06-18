@@ -186,13 +186,13 @@ class TestStdioDiscoveryTools:
 
 
 class TestStdioExampleConfig:
-    """Verify the shipped examples/config.yml works end-to-end."""
+    """Verify the shipped examples/simple/config.yml works end-to-end."""
 
     def test_example_config_loads(self):
         async def run():
             transport = StdioTransport(
                 command=sys.executable,
-                args=["-m", "sdlc_mcp", "serve", "--config", "examples/config.yml"],
+                args=["-m", "sdlc_mcp", "serve", "--config", "examples/simple/config.yml"],
             )
             async with Client(transport) as client:
                 tools = await client.list_tools()

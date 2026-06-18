@@ -33,7 +33,7 @@ uv run pytest
 
 ## Architecture
 
-**Config loading:** A config file is a YAML list of named scopes. Each scope has a `name`, optional `sources`, optional `repos` filter, and optional `include` list of `file://` or `git+<url>` URIs. Scopes are processed top to bottom. Includes are resolved recursively before the including scope, so included content is the base and later scopes override.
+**Config loading:** A config file is a YAML list of named scopes. Each scope has a `name`, optional `sources`, optional `repos` filter, optional `strategy`, and optional `include` list of `file://` or `git+<url>` URIs. Scopes are processed top to bottom. Includes are resolved recursively before the including scope, so included content is the base and later scopes override. If `--config` is not specified, config is loaded from: `SDLC_MCP_CONFIG` env var, `/etc/sdlc-mcp/config.yml`, or `~/.config/sdlc-mcp/config.yml`.
 
 **Hierarchy resolution:** Given a repo identifier, filter scopes to those that apply (no `repos` filter, or repo name matches). The org prefix is stripped, so `ansible/awx` and `shanemcd/awx` both match a scope with `repos: [awx]`.
 
@@ -44,7 +44,7 @@ uv run pytest
 **Merging:** Configurable per-scope via `strategy` field (default: `overwrite`). Four strategies:
 - `overwrite` — full file replacement (default, backwards compatible)
 - `append` — concatenate after existing content
-- `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters). Appended content is prefixed with `scope specific overrides:` for attribution.
+- `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters). Appended content is prefixed with `scope specific overrides:` for attribution. Unmatched sections are appended at the end of the document.
 - `template` — fill `{NAME}` placeholders with `@NAME` blocks. Sigils: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (first filler, strip if unfilled), `{!?FOO}` (last filler, strip if unfilled)
 
 The first scope to provide a file is always the base. Strategy only applies to subsequent scopes. Different scopes can use different strategies for the same file.

@@ -85,6 +85,12 @@ Scopes with a `repos` filter only apply when the requested repo matches. The org
 
 Includes resolve `file://` (local paths, absolute or relative) and `git+<url>` (clones any git repo) URIs. Included configs are processed before the including scope, so they provide the base that later scopes override.
 
+If `--config` is not specified on the CLI, config is loaded from these locations in order:
+
+1. `SDLC_MCP_CONFIG` environment variable (path to config file)
+2. `/etc/sdlc-mcp/config.yml` (system-wide)
+3. `~/.config/sdlc-mcp/config.yml` (per-user)
+
 ### Scope Resolution
 
 A scope matches a repo in three ways:
@@ -295,6 +301,11 @@ The architecture is designed so that SEP-2640 support is an additive layer, not 
 - Pluggable merge strategies: overwrite (default), append, merge-append, template
 - Template placeholder sigils: `{FOO}`, `{!FOO}`, `{?FOO}`, `{!?FOO}`
 - `@NAME` filler block syntax for template strategy
+
+### Phase 3.6: Per-file merge strategy (future)
+- Allow `strategy` in content file frontmatter to override the scope-level strategy
+- Enables a single scope to use different strategies for different files
+- Workaround until then: split a team's content into multiple scopes with different strategies
 
 ### Phase 4: SEP-2640 skill:// resource layer
 - Register `skill://` resources for workflow content
