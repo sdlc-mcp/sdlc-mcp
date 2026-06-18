@@ -63,6 +63,7 @@ claude mcp add --transport stdio --scope project sdlc-mcp \
 
 Or bundle your config and content into a separate package that depends on `sdlc-mcp`. See the [design doc](docs/design.md) for details.
 
-## Design
+## Development
 
-See [docs/design.md](docs/design.md) for the full design document.
+- **Design:** See [docs/design.md](docs/design.md) for the full design document
+- **Releasing:** See [RELEASE.md](RELEASE.md) for the release process
