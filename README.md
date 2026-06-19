@@ -27,9 +27,79 @@ The config is a YAML list of named scopes, processed top to bottom. Each scope p
       path: content/teams/api/
 ```
 
-If both `acme` and `api` have a `testing.md`, the `api` version wins for matching repos. Everything else inherits from the org level. The merge happens server-side. The agent never sees conflicting content, just the right answer.
+If both `acme` and `api` have a `testing.md`, the default behavior is that the `api` version wins for matching repos (overwrite). But you can control this with merge strategies.
 
 Scopes can also include external configs via `file://` or `git+<url>` URIs, so content can be spread across multiple repos, public and private.
+
+## Merge Strategies
+
+By default, later scopes overwrite earlier ones. But sometimes you want to layer content instead of replacing it. The `strategy` field controls this per-scope:
+
+```yaml
+- name: acme                          # base — no strategy needed
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway]
+  strategy: merge-append              # append under matching headings
+  sources:
+    - type: local
+      path: content/teams/api/
+```
+
+| Strategy | What it does |
+|----------|-------------|
+| `overwrite` | Replaces the file entirely (default) |
+| `append` | Concatenates after the existing content |
+| `merge-append` | Appends under matching markdown headings (`## Testing > ### Coverage` is a distinct path from `## Deploy > ### Coverage`). Appended content is prefixed with `scope specific overrides:` for attribution. Unmatched sections are appended at the end of the document. |
+| `template` | Fills `{PLACEHOLDER}` slots in the base file with `@PLACEHOLDER` blocks from the incoming scope |
+
+### Template example
+
+Org file declares slots, team fills them:
+
+```markdown
+# Testing (org)
+All teams must achieve {COVERAGE_TARGET} code coverage.
+{?TEAM_CONVENTIONS}
+```
+
+```markdown
+# Testing (team, strategy: template)
+@COVERAGE_TARGET
+90%
+
+@TEAM_CONVENTIONS
+Contract tests required for all API endpoints.
+```
+
+Placeholder sigils control fill behavior: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (strip if unfilled), `{!?FOO}` (last filler, strip if unfilled).
+
+See the [design doc](docs/design.md) for full details on scope resolution and strategy semantics.
+
+### Per-file strategy
+
+Merge strategy is currently per-scope — all files in a scope use the same strategy. Per-file strategy (via frontmatter) is planned for a future release (see [Phase 3.6](docs/design.md#phase-36-per-file-merge-strategy-future) in the design doc).
+
+As a workaround, split a team's content into multiple scopes with different strategies:
+
+```yaml
+- name: data-layer-overrides
+  repos: [db-service]
+  strategy: overwrite
+  sources:
+    - type: local
+      path: content/teams/data-layer/overrides/
+
+- name: data-layer-additions
+  repos: [db-service]
+  strategy: merge-append
+  sources:
+    - type: local
+      path: content/teams/data-layer/additions/
+```
 
 ## How Content Becomes Tools
 
@@ -63,7 +133,36 @@ claude mcp add --transport stdio --scope project sdlc-mcp \
 
 Or bundle your config and content into a separate package that depends on `sdlc-mcp`. See the [design doc](docs/design.md) for details.
 
-## Development
+### Running as an HTTP server
 
-- **Design:** See [docs/design.md](docs/design.md) for the full design document
-- **Releasing:** See [RELEASE.md](RELEASE.md) for the release process
+```bash
+sdlc-mcp serve --transport streamable-http --host localhost --port 8000 --config path/to/config.yml
+```
+
+### Config lookup
+
+If `--config` is not specified, config is loaded from these locations in order:
+
+1. `SDLC_MCP_CONFIG` environment variable (path to config file)
+2. `/etc/sdlc-mcp/config.yml` (system-wide)
+3. `~/.config/sdlc-mcp/config.yml` (per-user)
+
+### Authentication with Google OAuth
+
+Google OAuth authentication is disabled if the following environment variables are not set. Authentication does not impact local stdio usage. For production deployments over HTTP, authentication is recommended.
+
+```bash
+export GOOGLE_CLIENT_ID="..."
+export GOOGLE_CLIENT_SECRET="..."
+export SDLC_MCP_BASE_URL="https://your-server.example.com"
+```
+
+When these are not set, the server runs unauthenticated over transport streamable-http.
+
+## Docs
+
+- [Getting Started](docs/getting-started.md) — install, run, try the examples
+- [Developer Guide](docs/developer-guide.md) — project structure, testing, contributing
+- [Design Doc](docs/design.md) — architecture, scope resolution, strategy semantics
+- [Test Matrix](docs/merge-strategy-test-matrix.md) — full merge strategy test coverage
+- [Releasing](RELEASE.md) — release process

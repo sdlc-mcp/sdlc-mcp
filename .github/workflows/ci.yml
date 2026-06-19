@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Lint
+        run: make lint
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Run tests
+        run: make test-no-git
+
+  smoke:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies
+        run: make install
+
+      - name: "Smoke: list_repos (simple)"
+        run: make call-pretty TOOL=list_repos SDLC_MCP_CONFIG=./examples/simple/config.yml
+
+      - name: "Smoke: list_tools_for_repo (simple)"
+        run: make call-pretty TOOL=list_tools_for_repo ARGS='{"repo":"api-gateway"}' SDLC_MCP_CONFIG=./examples/simple/config.yml
+
+      - name: "Smoke: testing for web-app (simple/overwrite)"
+        run: make call-pretty TOOL=testing ARGS='{"repo":"web-app"}' SDLC_MCP_CONFIG=./examples/simple/config.yml
+
+      - name: "Smoke: testing for api-gateway (merge-append)"
+        run: make call-pretty TOOL=testing ARGS='{"repo":"api-gateway"}' SDLC_MCP_CONFIG=./examples/merge-append/config.yml
+
+      - name: "Smoke: testing for api-gateway (append)"
+        run: make call-pretty TOOL=testing ARGS='{"repo":"api-gateway"}' SDLC_MCP_CONFIG=./examples/append/config.yml
+
+      - name: "Smoke: code_review for api-gateway (template)"
+        run: make call-pretty TOOL=code_review ARGS='{"repo":"api-gateway"}' SDLC_MCP_CONFIG=./examples/template/config.yml

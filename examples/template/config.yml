@@ -1,0 +1,28 @@
+# Template strategy: org files declare {PLACEHOLDER} slots,
+# team files fill them with @PLACEHOLDER blocks.
+
+- name: platform
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway, api-auth]
+  strategy: template
+  sources:
+    - type: local
+      path: content/teams/api/
+
+- name: frontend
+  repos: [web-app, design-system]
+  strategy: template
+  sources:
+    - type: local
+      path: content/teams/frontend/
+
+- name: data-layer
+  repos: [db-service, migrations]
+  strategy: template
+  sources:
+    - type: local
+      path: content/teams/data-layer/

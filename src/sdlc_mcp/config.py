@@ -59,6 +59,7 @@ class Scope:
     name: str
     sources: list[SourceConfig] = field(default_factory=list)
     repos: list[str] = field(default_factory=list)
+    strategy: str = "overwrite"
 
 
 @dataclass
@@ -85,6 +86,7 @@ def _parse_scope(data: dict[str, Any]) -> Scope:
         name=data.get("name", ""),
         sources=_parse_sources(data),
         repos=data.get("repos", []),
+        strategy=data.get("strategy", "overwrite"),
     )
 
 

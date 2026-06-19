@@ -1,0 +1,27 @@
+# Append strategy: team content is concatenated after org content.
+
+- name: platform
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway, api-auth]
+  strategy: append
+  sources:
+    - type: local
+      path: content/teams/api/
+
+- name: frontend
+  repos: [web-app, design-system]
+  strategy: append
+  sources:
+    - type: local
+      path: content/teams/frontend/
+
+- name: data-layer
+  repos: [db-service, migrations]
+  strategy: append
+  sources:
+    - type: local
+      path: content/teams/data-layer/

@@ -32,7 +32,7 @@ async def _call_discovery_tools(client):
 async def smoke_stdio():
     transport = StdioTransport(
         command=sys.executable,
-        args=["-m", "sdlc_mcp", "serve", "--config", "examples/config.yml"],
+        args=["-m", "sdlc_mcp", "serve", "--config", "examples/simple/config.yml"],
     )
     async with Client(transport) as client:
         await _call_discovery_tools(client)

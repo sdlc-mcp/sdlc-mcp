@@ -101,6 +101,106 @@ def test_no_team_content_for_unknown_repo(tmp_path):
     assert "Org-level testing" in merged.get("testing.md").content
 
 
+def test_three_unscoped_scopes_last_wins(tmp_path):
+    """Three unscoped scopes all have testing.md — last one wins."""
+    company_dir = tmp_path / "company"
+    company_dir.mkdir()
+    (company_dir / "testing.md").write_text("# Testing\nCompany testing.")
+
+    org_dir = tmp_path / "org"
+    org_dir.mkdir()
+    (org_dir / "testing.md").write_text("# Testing\nOrg testing.")
+
+    division_dir = tmp_path / "division"
+    division_dir.mkdir()
+    (division_dir / "testing.md").write_text("# Testing\nDivision testing.")
+
+    config = Config(
+        scopes=[
+            Scope(
+                name="acme",
+                sources=[SourceConfig(type="local", path=str(company_dir))],
+            ),
+            Scope(
+                name="platform",
+                sources=[SourceConfig(type="local", path=str(org_dir))],
+            ),
+            Scope(
+                name="division",
+                sources=[SourceConfig(type="local", path=str(division_dir))],
+            ),
+        ]
+    )
+
+    hierarchy = resolve_hierarchy(config, "any-repo")
+    merged = merge_content(hierarchy)
+
+    testing = merged.get("testing.md")
+    assert testing is not None
+    assert "Division testing" in testing.content
+    assert "Org testing" not in testing.content
+    assert "Company testing" not in testing.content
+    assert merged.provenance["testing.md"] == "division:division"
+
+
+def test_mixed_scoped_unscoped_ordering(tmp_path):
+    """no repo -> no repo -> repo A -> repo B -> repo A.
+
+    No repo call: gets 2nd scope (last unscoped).
+    Repo A call: gets 5th scope (last matching).
+    Repo B call: gets 4th scope (only match).
+    """
+    dirs = []
+    for i in range(5):
+        d = tmp_path / f"scope{i}"
+        d.mkdir()
+        (d / "testing.md").write_text(f"# Testing\nScope {i} testing.")
+        dirs.append(d)
+
+    config = Config(
+        scopes=[
+            Scope(
+                name="scope0",
+                sources=[SourceConfig(type="local", path=str(dirs[0]))],
+            ),
+            Scope(
+                name="scope1",
+                sources=[SourceConfig(type="local", path=str(dirs[1]))],
+            ),
+            Scope(
+                name="scope2",
+                repos=["repo-a"],
+                sources=[SourceConfig(type="local", path=str(dirs[2]))],
+            ),
+            Scope(
+                name="scope3",
+                repos=["repo-b"],
+                sources=[SourceConfig(type="local", path=str(dirs[3]))],
+            ),
+            Scope(
+                name="scope4",
+                repos=["repo-a"],
+                sources=[SourceConfig(type="local", path=str(dirs[4]))],
+            ),
+        ]
+    )
+
+    # No repo: only unscoped match (scope0, scope1) — scope1 wins
+    hierarchy = resolve_hierarchy(config, "")
+    merged = merge_content(hierarchy)
+    assert "Scope 1 testing" in merged.get("testing.md").content
+
+    # Repo A: scope0, scope1 (unscoped), scope2, scope4 match — scope4 wins
+    hierarchy = resolve_hierarchy(config, "repo-a")
+    merged = merge_content(hierarchy)
+    assert "Scope 4 testing" in merged.get("testing.md").content
+
+    # Repo B: scope0, scope1 (unscoped), scope3 match — scope3 wins
+    hierarchy = resolve_hierarchy(config, "repo-b")
+    merged = merge_content(hierarchy)
+    assert "Scope 3 testing" in merged.get("testing.md").content
+
+
 def test_filenames_sorted(tmp_path):
     config = _make_config(tmp_path)
     hierarchy = resolve_hierarchy(config, "acme/api-gateway")
