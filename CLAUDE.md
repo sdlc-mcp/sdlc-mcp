@@ -49,7 +49,9 @@ uv run pytest
 
 The first scope to provide a file is always the base. Strategy only applies to subsequent scopes. Different scopes can use different strategies for the same file.
 
-**MCP tools:** Content tools are auto-generated from markdown frontmatter (one tool per artifact).
+**Content metadata:** An optional `context-metadata.yml` file alongside `config.yml` provides flat key/value metadata (name, version, etc.) exposed via the `context_version` tool prefixed with `context_`.
+
+**MCP tools:** Content tools are auto-generated from markdown frontmatter (one tool per artifact). Discovery tools (`list_repos`, `list_tools_for_repo`, `context_version`) are built-in.
 
 **Source layout:**
 
@@ -65,7 +67,7 @@ src/sdlc_mcp/
     local.py         # Local directory source
     git.py           # Git repo source
   merge.py           # Content merging with pluggable strategies
-  discovery.py       # Repo and tool discovery (list_repos, list_tools_for_repo)
+  discovery.py       # Repo, tool, and version discovery (list_repos, list_tools_for_repo, context_version)
 ```
 
 ## Conventions

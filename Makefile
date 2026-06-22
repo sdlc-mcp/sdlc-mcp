@@ -1,6 +1,6 @@
 SDLC_MCP_CONFIG ?= ./examples/simple/config.yml
 
-.PHONY: help install lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty
+.PHONY: help install lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty context-version
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -48,3 +48,6 @@ call: ## Call a tool (usage: make call TOOL=list_repos ARGS='{"repo":"api-gatewa
 
 call-pretty: ## Call a tool with formatted output (same args as call)
 	@uv run fastmcp call --command "uv run sdlc-mcp serve --config $(SDLC_MCP_CONFIG)" --target $(TOOL) $(if $(ARGS),--input-json '$(ARGS)') --json 2>/dev/null | python3 -c "import sys,json; print(json.loads(sys.stdin.read())['content'][0]['text'])"
+
+context-version: ## Show context version info
+	@make call-pretty TOOL=context_version

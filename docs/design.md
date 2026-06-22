@@ -298,9 +298,11 @@ The architecture is designed so that SEP-2640 support is an additive layer, not 
 ### Phase 3.5: Discovery tools and merge strategies (done)
 - `list_repos` tool: returns all repos with repo-specific scopes
 - `list_tools_for_repo(repo)` tool: shows per-tool provenance and overrides
+- `context_version` tool: reports engine version, auto-discovered wrapper packages, and content metadata from `context-metadata.yml`
 - Pluggable merge strategies: overwrite (default), append, merge-append, template
 - Template placeholder sigils: `{FOO}`, `{!FOO}`, `{?FOO}`, `{!?FOO}`
 - `@NAME` filler block syntax for template strategy
+- `context-metadata.yml`: optional flat key/value file alongside config for content metadata
 
 ### Phase 3.6: Per-file merge strategy (future)
 - Allow `strategy` in content file frontmatter to override the scope-level strategy

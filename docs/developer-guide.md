@@ -113,6 +113,19 @@ make call TOOL=list_tools_for_repo ARGS='{"repo":"api-gateway"}'
 make call TOOL=testing ARGS='{"repo":"api-gateway"}'
 ```
 
+Check version info:
+
+```bash
+make context-version
+make context-version SDLC_MCP_CONFIG=./examples/merge-append/config.yml
+```
+
+Use `call-pretty` for formatted output (strips server logs, renders newlines):
+
+```bash
+make call-pretty TOOL=testing ARGS='{"repo":"api-gateway"}'
+```
+
 ## Smoke tests
 
 End-to-end tests that start the server and call discovery tools:
@@ -146,4 +159,5 @@ make smoke-http        # over HTTP transport (starts/stops server)
 - **Strategy** is per-scope, not per-file (per-file via frontmatter is planned, see Phase 3.6 in design doc).
 - **Merge-append** includes `scope specific overrides:` attribution labels.
 - **Template** uses `@NAME` blocks as fillers and `{NAME}` placeholders with sigils for fill behavior.
-- **Discovery tools** (`list_repos`, `list_tools_for_repo`) are built-in MCP tools, not content tools.
+- **Discovery tools** (`list_repos`, `list_tools_for_repo`, `context_version`) are built-in MCP tools, not content tools.
+- **Content metadata** is an optional `context-metadata.yml` file alongside `config.yml` with flat key/value pairs, exposed via `context_version` prefixed with `context_`.

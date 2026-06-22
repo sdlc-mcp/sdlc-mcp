@@ -10,7 +10,11 @@ from fastmcp import FastMCP
 from fastmcp.tools import Tool
 
 from .config import Config, load_config
-from .discovery import list_repos as _list_repos, list_tools_for_repo as _list_tools_for_repo
+from .discovery import (
+    get_context_version as _get_context_version,
+    list_repos as _list_repos,
+    list_tools_for_repo as _list_tools_for_repo,
+)
 from .hierarchy import resolve_hierarchy
 from .merge import merge_content, merge_content_for_category
 
@@ -40,6 +44,7 @@ def _build_auth():
 mcp = FastMCP("sdlc-mcp", auth=_build_auth())
 
 _config: Config | None = None
+_metadata_path: Path | None = None
 
 
 def get_config() -> Config:
@@ -58,8 +63,10 @@ def init_config_from_path(
     config_paths: list[Path] | None = None,
     repo_path: Path | None = None,
 ) -> None:
-    global _config
+    global _config, _metadata_path
     _config = load_config(repo_path=repo_path, config_paths=config_paths)
+    if config_paths:
+        _metadata_path = config_paths[0].parent / "context-metadata.yml"
     register_content_tools()
     register_discovery_tools()
     total = sum(1 for k in mcp.local_provider._components if k.startswith("tool:"))
@@ -101,6 +108,18 @@ def _make_content_tool(category: str, description: str):
         return item.content
 
     tool_fn.__name__ = f"{category.replace('-', '_')}"
+    tool_fn.__qualname__ = tool_fn.__name__
+    return tool_fn
+
+
+def _make_context_version_tool():
+    """Create a tool function that returns version info."""
+
+    def tool_fn() -> str:
+        info = _get_context_version(metadata_path=_metadata_path)
+        return "\n".join(f"{k}: {v}" for k, v in info.items())
+
+    tool_fn.__name__ = "context_version"
     tool_fn.__qualname__ = tool_fn.__name__
     return tool_fn
 
@@ -194,3 +213,12 @@ def register_discovery_tools() -> None:
     )
     mcp.add_tool(tool)
     logger.info("Registered list_tools_for_repo discovery tool")
+
+    fn = _make_context_version_tool()
+    tool = Tool.from_function(
+        fn,
+        name="context_version",
+        description="Version info for the sdlc-mcp engine, wrapper packages, and content metadata",
+    )
+    mcp.add_tool(tool)
+    logger.info("Registered context_version discovery tool")
