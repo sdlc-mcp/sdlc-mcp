@@ -1,18 +1,25 @@
-"""Repo and tool discovery.
+"""Repo, tool, and version discovery.
 
-Provides two discovery functions:
+Provides three discovery functions:
 - list_repos: all unique repo names from config scopes
-- list_tools_for_repo: per-tool provenance for a given repo,
-  showing which scope provides the winning version and which were overridden
+- list_tools_for_repo: per-tool provenance for a given repo
+- get_version_info: engine version, wrapper packages, and content metadata
 """
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
+from importlib.metadata import distributions, version
+from pathlib import Path
+
+import yaml
 
 from .config import Config
 from .hierarchy import resolve_hierarchy
 from .merge import _read_sources
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -75,3 +82,35 @@ def list_tools_for_repo(config: Config, repo: str) -> list[ToolOverview]:
         )
 
     return results
+
+
+def get_context_version(metadata_path: Path | None = None) -> dict[str, str]:
+    """Return version info from all three layers.
+
+    1. sdlc-mcp engine version (always)
+    2. Wrapper packages that depend on sdlc-mcp (auto-discovered)
+    3. Content metadata from context-metadata.yml (flat key/value, prefixed context_)
+    """
+    info: dict[str, str] = {}
+
+    info["sdlc-mcp"] = version("sdlc-mcp")
+
+    seen = set()
+    for dist in distributions():
+        name = dist.metadata["Name"]
+        if name in seen or name == "sdlc-mcp":
+            continue
+        seen.add(name)
+        requires = dist.requires or []
+        if any("sdlc-mcp" in r for r in requires):
+            info[name] = dist.version
+
+    if metadata_path and metadata_path.exists():
+        with open(metadata_path) as f:
+            raw = yaml.safe_load(f)
+        if isinstance(raw, dict):
+            for key, value in raw.items():
+                if isinstance(value, (str, int, float, bool)):
+                    info[f"context_{key}"] = str(value)
+
+    return info

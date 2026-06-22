@@ -58,6 +58,13 @@ make call TOOL=list_tools_for_repo ARGS='{"repo":"api-gateway"}'
 make call TOOL=testing ARGS='{"repo":"api-gateway"}'
 ```
 
+### Check version info
+
+```bash
+make context-version
+make context-version SDLC_MCP_CONFIG=./examples/merge-append/config.yml
+```
+
 ### Smoke tests
 
 Run the discovery tools end-to-end over stdio:
@@ -81,6 +88,17 @@ The server needs a config file to know what content to serve. If `--config` is n
 3. `~/.config/sdlc-mcp/config.yml`
 
 The Makefile defaults `SDLC_MCP_CONFIG` to `./examples/simple/config.yml` for development.
+
+## Content metadata
+
+Place a `context-metadata.yml` file alongside your `config.yml` with flat key/value pairs:
+
+```yaml
+name: acme-engineering-standards
+version: 2.1.0
+```
+
+The `context_version` tool reports this alongside the engine version and any wrapper packages. See the examples for reference.
 
 ## Examples
 

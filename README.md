@@ -139,6 +139,19 @@ Or bundle your config and content into a separate package that depends on `sdlc-
 sdlc-mcp serve --transport streamable-http --host localhost --port 8000 --config path/to/config.yml
 ```
 
+### Content metadata
+
+Place a `context-metadata.yml` file alongside your `config.yml` with flat key/value pairs:
+
+```yaml
+name: acme-engineering-standards
+version: 2.1.0
+git: https://github.com/acme/standards
+maintainer: platform-team@acme.com
+```
+
+The `context_version` tool reports this metadata (prefixed with `context_`) alongside the sdlc-mcp engine version and any auto-discovered wrapper packages.
+
 ### Config lookup
 
 If `--config` is not specified, config is loaded from these locations in order:
