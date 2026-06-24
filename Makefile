@@ -7,6 +7,8 @@ help: ## Show available targets
 
 install: ## Install dependencies
 	uv sync
+	uv pip install -e .
+	@uv run python -c "from importlib.metadata import version; print('sdlc-mcp:', version('sdlc-mcp'))"
 
 lint: ## Run linter and format check
 	uvx ruff check .
