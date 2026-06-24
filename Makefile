@@ -1,11 +1,15 @@
 SDLC_MCP_CONFIG ?= ./examples/simple/config.yml
 
-.PHONY: help install lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty context-version
+.PHONY: help install install-dependencies lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty context-version
 
 help: ## Show available targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install dependencies
+install: install-dependencies ## Install SDLC-MCP locally
+	uv pip install -e .
+	@uv run python -c "from importlib.metadata import version; print('sdlc-mcp:', version('sdlc-mcp'))"
+
+install-dependencies: ## Install/Update dependencies
 	uv sync
 
 lint: ## Run linter and format check
