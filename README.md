@@ -54,28 +54,33 @@ By default, later scopes overwrite earlier ones. But sometimes you want to layer
 | `overwrite` | Replaces the file entirely (default) |
 | `append` | Concatenates after the existing content |
 | `merge-append` | Appends under matching markdown headings (`## Testing > ### Coverage` is a distinct path from `## Deploy > ### Coverage`). Appended content is prefixed with `scope specific overrides:` for attribution. Unmatched sections are appended at the end of the document. |
-| `template` | Fills `{PLACEHOLDER}` slots in the base file with `@PLACEHOLDER` blocks from the incoming scope |
 
-### Template example
+### Vars (Jinja2 templates)
 
-Org file declares slots, team fills them:
+Scopes can declare `vars` to fill in Jinja2 expressions in content files. Vars are independent of the merge strategy and render after all merging is complete.
 
-```markdown
-# Testing (org)
-All teams must achieve {COVERAGE_TARGET} code coverage.
-{?TEAM_CONVENTIONS}
+```yaml
+- name: platform
+  sources:
+    - type: local
+      path: content/org/
+
+- name: api
+  repos: [api-gateway]
+  vars:
+    coverage_target: "90%"
+    team_conventions: "Contract tests required for all API endpoints."
 ```
 
 ```markdown
-# Testing (team, strategy: template)
-@COVERAGE_TARGET
-90%
-
-@TEAM_CONVENTIONS
-Contract tests required for all API endpoints.
+# Testing (org content file)
+All teams must achieve {{ coverage_target | default("80%") }} code coverage.
+{% if team_conventions %}
+{{ team_conventions }}
+{% endif %}
 ```
 
-Placeholder sigils control fill behavior: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (strip if unfilled), `{!?FOO}` (last filler, strip if unfilled).
+Vars accumulate through the hierarchy. Later scopes override earlier ones for the same key.
 
 See the [design doc](docs/design.md) for full details on scope resolution and strategy semantics.
 

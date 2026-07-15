@@ -1,12 +1,15 @@
 """Content merging with pluggable strategies.
 
-Strategies (configured per-scope, applied when the scope's content
-merges into the accumulated result):
+Strategies control how files with the same name combine when multiple
+scopes provide them:
 
-  overwrite     — full file replacement (default, backwards compatible)
-  append        — concatenate after existing content
-  merge-append  — append under matching markdown heading paths
-  template      — fill {NAME} placeholders with @NAME blocks
+  overwrite     -- full file replacement (default, backwards compatible)
+  append        -- concatenate after existing content
+  merge-append  -- append under matching markdown heading paths
+
+Separately, scopes can declare vars which are rendered into content
+via Jinja2 after merge resolution. Vars accumulate through the
+hierarchy (later scopes override earlier ones for the same key).
 """
 
 from __future__ import annotations
@@ -15,13 +18,15 @@ import logging
 import re
 from dataclasses import dataclass, field
 
+import jinja2
+
 from .config import SourceConfig
 from .hierarchy import ResolvedHierarchy
 from .sources import ContentItem, get_source_class
 
 logger = logging.getLogger(__name__)
 
-VALID_STRATEGIES = {"overwrite", "append", "merge-append", "template"}
+VALID_STRATEGIES = {"overwrite", "append", "merge-append"}
 
 
 @dataclass
@@ -135,69 +140,17 @@ def _merge_append_content(existing_text: str, incoming_text: str, scope_name: st
 
 
 # ---------------------------------------------------------------------------
-# Template: @NAME blocks and {NAME} placeholders
+# Jinja2 variable rendering
 # ---------------------------------------------------------------------------
 
 
-def _parse_at_blocks(text: str) -> dict[str, str]:
-    blocks: dict[str, str] = {}
-    current_name: str | None = None
-    current_lines: list[str] = []
-
-    for line in text.split("\n"):
-        if line.startswith("@") and len(line) > 1 and line[1:].strip():
-            if current_name is not None:
-                blocks[current_name] = "\n".join(current_lines).strip()
-            current_name = line[1:].strip()
-            current_lines = []
-        elif current_name is not None:
-            current_lines.append(line)
-
-    if current_name is not None:
-        blocks[current_name] = "\n".join(current_lines).strip()
-
-    return blocks
-
-
-def _apply_template(
-    existing: ContentItem,
-    incoming_content: str,
-    last_filler_values: dict[tuple[str, str], str],
-) -> None:
-    blocks = _parse_at_blocks(incoming_content)
-    content = existing.content
-
-    for name, value in blocks.items():
-        if "{" + name + "}" in content:
-            content = content.replace("{" + name + "}", value)
-        elif "{?" + name + "}" in content:
-            content = content.replace("{?" + name + "}", value)
-        elif "{!" + name + "}" in content:
-            last_filler_values[(existing.filename, name)] = value
-        elif "{!?" + name + "}" in content:
-            last_filler_values[(existing.filename, name)] = value
-
-    existing.content = content
-
-
-def _finalize_templates(
-    merged: MergedContent, last_filler_values: dict[tuple[str, str], str]
-) -> None:
-    for item in merged.items.values():
-        content = item.content
-
-        for (filename, name), value in last_filler_values.items():
-            if filename == item.filename:
-                content = content.replace("{!" + name + "}", value)
-                content = content.replace("{!?" + name + "}", value)
-
-        content = re.sub(r"\{\?[A-Z0-9_]+\}", "", content)
-        content = re.sub(r"\{!\?[A-Z0-9_]+\}", "", content)
-
-        while "\n\n\n" in content:
-            content = content.replace("\n\n\n", "\n\n")
-
-        item.content = content.strip()
+def _render_vars(content: str, vars: dict[str, str]) -> str:
+    env = jinja2.Environment(undefined=jinja2.Undefined, keep_trailing_newline=True)
+    template = env.from_string(content)
+    rendered = template.render(**vars)
+    while "\n\n\n" in rendered:
+        rendered = rendered.replace("\n\n\n", "\n\n")
+    return rendered.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -206,9 +159,9 @@ def _finalize_templates(
 
 
 def merge_content(hierarchy: ResolvedHierarchy) -> MergedContent:
-    """Merge content from all hierarchy levels using per-level strategies."""
+    """Merge content from all hierarchy levels, then render vars."""
     merged = MergedContent()
-    last_filler_values: dict[tuple[str, str], str] = {}
+    accumulated_vars: dict[str, str] = {}
 
     for level in hierarchy.levels:
         items = _read_sources(level.sources)
@@ -226,15 +179,16 @@ def merge_content(hierarchy: ResolvedHierarchy) -> MergedContent:
                 existing = merged.items[item.filename]
                 existing.content = _merge_append_content(existing.content, item.content, level.name)
                 merged.provenance[item.filename] = f"{level.level}:{level.name}"
-            elif strategy == "template":
-                existing = merged.items[item.filename]
-                _apply_template(existing, item.content, last_filler_values)
-                merged.provenance[item.filename] = f"{level.level}:{level.name}"
             else:
                 merged.items[item.filename] = item
                 merged.provenance[item.filename] = f"{level.level}:{level.name}"
 
-    _finalize_templates(merged, last_filler_values)
+        if level.vars:
+            accumulated_vars.update(level.vars)
+
+    if accumulated_vars:
+        for item in merged.items.values():
+            item.content = _render_vars(item.content, accumulated_vars)
 
     return merged
 

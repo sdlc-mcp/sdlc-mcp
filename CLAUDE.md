@@ -41,13 +41,14 @@ uv run pytest
 
 **Scope resolution:** A scope matches a repo three ways: no `repos` filter (matches all), repo name in `repos` list, or repo name equals scope name. All matching scopes stack in config order. The org prefix is stripped (`ansible/awx` → `awx`).
 
-**Merging:** Configurable per-scope via `strategy` field (default: `overwrite`). Four strategies:
+**Merging:** Configurable per-scope via `strategy` field (default: `overwrite`). Three strategies:
 - `overwrite` — full file replacement (default, backwards compatible)
 - `append` — concatenate after existing content
 - `merge-append` — append under matching markdown heading paths (hierarchical: `## > ###` matters). Appended content is prefixed with `scope specific overrides:` for attribution. Unmatched sections are appended at the end of the document.
-- `template` — fill `{NAME}` placeholders with `@NAME` blocks. Sigils: `{FOO}` (first filler wins), `{!FOO}` (last filler wins), `{?FOO}` (first filler, strip if unfilled), `{!?FOO}` (last filler, strip if unfilled)
 
 The first scope to provide a file is always the base. Strategy only applies to subsequent scopes. Different scopes can use different strategies for the same file.
+
+**Vars:** Scopes can declare `vars` (dict of key-value pairs). After merge resolution, all content is rendered through Jinja2 with the accumulated vars. Later scopes override earlier ones for the same key. Use `{{ var | default("fallback") }}` and `{% if var %}` in content files. Independent of merge strategy.
 
 **Content metadata:** An optional `context-metadata.yml` file alongside `config.yml` provides flat key/value metadata (name, version, etc.) exposed via the `context_version` tool prefixed with `context_`.
 

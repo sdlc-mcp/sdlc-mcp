@@ -1,5 +1,6 @@
-# Template strategy: org files declare {PLACEHOLDER} slots,
-# team files fill them with @PLACEHOLDER blocks.
+# Vars example: org files use Jinja2 templates, team scopes
+# provide vars to fill them in. Each team can also add unique
+# content files via sources.
 
 - name: platform
   sources:
@@ -8,21 +9,33 @@
 
 - name: api
   repos: [api-gateway, api-auth]
-  strategy: template
-  sources:
-    - type: local
-      path: content/teams/api/
+  vars:
+    coverage_target: "90%"
+    team_testing_notes: |
+      Contract tests required for all inter-service endpoints.
+      Load tests required for endpoints with >100 RPS.
+      Use httpx for async API testing.
+    team_pr_requirements: |
+      API contract changes require sign-off from the platform team.
+      Breaking changes require a deprecation notice in the PR description.
 
 - name: frontend
   repos: [web-app, design-system]
-  strategy: template
-  sources:
-    - type: local
-      path: content/teams/frontend/
+  vars:
+    coverage_target: "75%"
+    team_testing_notes: |
+      Visual regression tests required for all component changes.
+      Accessibility tests required for all user-facing components.
+      Use Playwright for end-to-end tests.
 
 - name: data-layer
   repos: [db-service, migrations]
-  strategy: template
+  vars:
+    coverage_target: "95%"
+    team_testing_notes: |
+      Migration tests must run against a real database, not mocks.
+      Schema changes require rollback tests.
+      Query performance tests required for new indexes.
   sources:
     - type: local
       path: content/teams/data-layer/

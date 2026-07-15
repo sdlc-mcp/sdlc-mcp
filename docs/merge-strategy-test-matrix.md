@@ -4,8 +4,7 @@
 
 - Strategy is configured per-scope in config YAML (e.g., `strategy: append`)
 - Default strategy is `overwrite` (backwards compatible)
-- Template filler syntax uses `@NAME` blocks: `@NAME` starts a block, content runs until the next `@NAME` or end of file
-- Template placeholder sigils: `{FOO}` (first filler), `{!FOO}` (last filler), `{?FOO}` (first filler, strip if empty), `{!?FOO}` (last filler, strip if empty)
+- Scopes can declare `vars` (rendered via Jinja2 after merge resolution, independent of strategy)
 
 ## Strategy 1: Overwrite (existing, default)
 
@@ -87,82 +86,24 @@
 | 22 | Empty section in team file | Nothing appended under that heading |
 | 23 | Team file has heading org doesn't have | Treated as new section, appended at end |
 
-## Strategy 4: Template
-
-### Basic substitution
+## Vars (Jinja2 rendering)
 
 | # | Scenario | What to verify |
 |---|---|---|
-| 1 | Single `{FOO}` placeholder, team fills it | Placeholder replaced inline |
-| 2 | Multiple placeholders, team fills all | Each replaced correctly |
-| 3 | Multiple placeholders, team fills some | Filled replaced, unfilled left |
-| 4 | Team provides section with no matching placeholder | Extra content — ignored or appended at end (TBD) |
-| 5 | Placeholder in middle of a paragraph | Inline replacement, surrounding text intact |
-| 6 | Same placeholder appears twice in org file | Both instances replaced |
-| 7 | Placeholder name collision with markdown heading | `{COVERAGE}` vs `## COVERAGE` — no confusion |
-| 8 | File exists only in scoped scope with template strategy | Template to nothing |
-| 9 | Nested placeholder — filled content contains new placeholder | Next scope can resolve it (cascading) |
-| 10 | Empty section for a placeholder | Placeholder replaced with empty string |
-
-### N-level cascading
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 11 | Org placeholder, division fills it | Division content replaces placeholder |
-| 12 | Org placeholder, division leaves it, team fills it | Placeholder survives division, team fills it |
-| 13 | Division introduces new placeholder in its content, team fills it | Cascading placeholder creation and filling |
-| 14 | Each level fills different placeholders | Each filled by correct level |
-| 15 | Division fills `{!FOO}`, team also fills `{!FOO}` | Last filler wins (team) |
-| 16 | Three scopes all try to fill `{FOO}` | First filler wins |
-
-### Sigil behavior — `{FOO}` first filler wins
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 17 | Two scopes fill same `{FOO}` | First filler wins, second ignored |
-| 18 | Three scopes fill same `{FOO}` | First filler wins, second and third ignored |
-| 19 | `{FOO}` unfilled by any scope | Left in output as literal `{FOO}` |
-
-### Sigil behavior — `{!FOO}` last filler wins
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 20 | Two scopes fill same `{!FOO}` | Last filler wins |
-| 21 | Three scopes fill same `{!FOO}` | Last filler wins, first two replaced |
-| 22 | Only middle scope fills `{!FOO}` | Middle value stands |
-| 23 | `{!FOO}` unfilled by any scope | Left in output as literal `{!FOO}` |
-
-### Sigil behavior — `{?FOO}` first filler, strip if empty
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 24 | Two scopes fill same `{?FOO}` | First filler wins |
-| 25 | Three scopes fill same `{?FOO}` | First filler wins |
-| 26 | `{?FOO}` unfilled by any scope | Stripped from output |
-
-### Sigil behavior — `{!?FOO}` last filler, strip if empty
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 27 | Two scopes fill same `{!?FOO}` | Last filler wins |
-| 28 | Three scopes fill same `{!?FOO}` | Last filler wins |
-| 29 | `{!?FOO}` unfilled by any scope | Stripped from output |
-
-### Multi-branch with repos (template)
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 30 | Five scopes, `{FOO}` placeholder | Repo A: first matching filler. Repo B: different filler. No repo: only unscoped. |
-| 31 | Five scopes, `{!FOO}` placeholder | Repo A: scope 5 wins. Repo B: scope 4 wins. No repo: scope 2 wins. |
-| 32 | Different repos fill same `{!FOO}` differently | api-gateway gets api's value, web-app gets frontend's |
-
-### Mixed placeholders in one file
-
-| # | Scenario | What to verify |
-|---|---|---|
-| 33 | `{FOO}` and `{!BAR}` in same file | First-filler and last-filler independently |
-| 34 | `{?FOO}` and `{!?BAR}`, neither filled | Both stripped |
-| 35 | `{FOO}` and `{?BAR}`, one filled one not | `{FOO}` present, `{?BAR}` stripped |
+| 1 | Basic `{{ var }}` substitution | Var replaced in content |
+| 2 | Multiple vars | Each replaced correctly |
+| 3 | `default()` filter, no var provided | Default value used |
+| 4 | `default()` filter, var provided | Provided value overrides default |
+| 5 | Undefined var, no default | Renders as empty string |
+| 6 | Vars apply to all files | All content items rendered |
+| 7 | Different repos get different vars | Per-repo scope vars resolve correctly |
+| 8 | No vars in hierarchy | Content passes through unchanged |
+| 9 | Vars accumulate across scopes | Multiple scopes contribute vars |
+| 10 | Later vars override earlier | Most specific scope wins |
+| 11 | `{% if var %}` conditional, var present | Conditional block rendered |
+| 12 | `{% if var %}` conditional, var absent | Conditional block omitted |
+| 13 | Vars with append strategy | Vars render after append merging |
+| 14 | Vars with merge-append strategy | Vars render after merge-append merging |
 
 ## Cross-cutting: Mixed strategies across levels
 
@@ -172,22 +113,16 @@
 |---|---|---|
 | 1 | append → overwrite | Overwrite wipes the appended result |
 | 2 | merge-append → overwrite | Overwrite wipes the merged result |
-| 3 | template → overwrite | Overwrite wipes the filled template |
-| 4 | overwrite → append | Append adds to the overwritten version |
-| 5 | overwrite → merge-append | Merge-append into the overwritten version |
-| 6 | append → merge-append | Merge-append into the appended result |
-| 7 | merge-append → append | Append after the merge-appended result |
-| 8 | template → merge-append | Filled template gets heading-level appends |
-| 9 | template → append | Filled template gets content concatenated |
-| 10 | append → template | Template fills placeholders in appended result |
+| 3 | overwrite → append | Append adds to the overwritten version |
+| 4 | overwrite → merge-append | Merge-append into the overwritten version |
+| 5 | append → merge-append | Merge-append into the appended result |
+| 6 | merge-append → append | Append after the merge-appended result |
 
 ### Multi-level mixed strategies
 
 | # | Scenario | What to verify |
 |---|---|---|
-| 11 | Three levels: append → merge-append → overwrite | Overwrite at end wipes everything |
-| 12 | Three levels: template → append → merge-append | Each strategy applies to accumulated result |
-| 13 | Five scopes with mixed strategies and repos | Full branching with strategy changes at each level |
+| 7 | Three levels: append → merge-append → overwrite | Overwrite at end wipes everything |
 
 ## Cross-cutting: General
 
