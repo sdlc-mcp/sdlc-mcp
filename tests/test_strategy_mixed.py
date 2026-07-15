@@ -353,8 +353,7 @@ def test_no_strategy_defaults_to_overwrite(tmp_path):
         ]
     )
 
-    content = merge_content(
-        resolve_hierarchy(config, "api-gateway")).get("testing.md").content
+    content = merge_content(resolve_hierarchy(config, "api-gateway")).get("testing.md").content
     assert "Team testing" in content
     assert "Org testing" not in content
 
@@ -379,7 +378,6 @@ def test_invalid_strategy_falls_back_to_overwrite(tmp_path):
         ]
     )
 
-    content = merge_content(
-        resolve_hierarchy(config, "api-gateway")).get("testing.md").content
+    content = merge_content(resolve_hierarchy(config, "api-gateway")).get("testing.md").content
     assert "Team testing" in content
     assert "Org testing" not in content
