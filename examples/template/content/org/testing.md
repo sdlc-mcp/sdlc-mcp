@@ -5,7 +5,7 @@ description: "Testing standards and conventions"
 # Testing Standards
 
 ## Coverage
-All teams must achieve {!COVERAGE_TARGET} code coverage.
+All teams must achieve {{ coverage_target | default("80%") }} code coverage.
 Integration tests required for all API endpoints.
 
 ## Naming
@@ -16,4 +16,7 @@ Group tests by module under tests/ directory.
 Run all tests before merging.
 PRs with failing tests must not be merged.
 
-{?TEAM_TESTING_NOTES}
+{% if team_testing_notes %}
+## Team-Specific Notes
+{{ team_testing_notes }}
+{% endif %}

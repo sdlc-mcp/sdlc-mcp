@@ -8,7 +8,9 @@ description: "Code review standards and process"
 PRs should be focused on a single concern.
 Include a description of what changed and why.
 Link to the relevant issue or ticket.
-{?TEAM_PR_REQUIREMENTS}
+{% if team_pr_requirements %}
+{{ team_pr_requirements }}
+{% endif %}
 
 ## Review Process
 Reviewers should respond within one business day.

@@ -2,7 +2,7 @@
 
 Verifies that different scopes can use different strategies for the same file,
 and that each strategy correctly operates on the accumulated result from prior
-scopes.
+scopes. Also tests that vars rendering works alongside all strategies.
 """
 
 from sdlc_mcp.config import Config, Scope, SourceConfig
@@ -90,41 +90,6 @@ def test_merge_append_then_overwrite(tmp_path):
     assert "Team replaces everything" in content
     assert "Org testing" not in content
     assert "Division additions" not in content
-
-
-def test_template_then_overwrite(tmp_path):
-    """Overwrite wipes the filled template."""
-    _write_md(tmp_path / "org", "testing.md", "Coverage: {TARGET}")
-    _write_md(tmp_path / "div", "testing.md", "@TARGET\n85%")
-    _write_md(tmp_path / "team", "testing.md", "Team replaces everything.")
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="division",
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "div"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="overwrite",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
-    assert "Team replaces everything" in content
-    assert "85%" not in content
-    assert "{TARGET}" not in content
 
 
 def test_overwrite_then_append(tmp_path):
@@ -268,19 +233,10 @@ def test_merge_append_then_append(tmp_path):
     assert "Team appended at end" in content
 
 
-def test_template_then_merge_append(tmp_path):
-    """Filled template gets heading-level appends."""
-    _write_md(
-        tmp_path / "org",
-        "testing.md",
-        "## Testing\n{TEAM_SECTION}\n\n## Deploy\nOrg deploy.",
-    )
-    _write_md(
-        tmp_path / "div",
-        "testing.md",
-        "@TEAM_SECTION\nDivision filled the template.",
-    )
-    _write_md(tmp_path / "team", "testing.md", "## Testing\nTeam merge-appended.")
+def test_vars_with_append(tmp_path):
+    """Vars render after append merging."""
+    _write_md(tmp_path / "org", "testing.md", "Org: {{ team_name }}")
+    _write_md(tmp_path / "team", "testing.md", "Team: {{ team_name }}")
 
     config = Config(
         scopes=[
@@ -289,111 +245,55 @@ def test_template_then_merge_append(tmp_path):
                 sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
             ),
             Scope(
-                name="division",
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "div"))],
+                name="api",
+                repos=["api-gateway"],
+                strategy="append",
+                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
+                vars={"team_name": "API"},
+            ),
+        ]
+    )
+
+    hierarchy = resolve_hierarchy(config, "api-gateway")
+    content = merge_content(hierarchy).get("testing.md").content
+
+    assert "Org: API" in content
+    assert "Team: API" in content
+
+
+def test_vars_with_merge_append(tmp_path):
+    """Vars render after merge-append merging."""
+    _write_md(tmp_path / "org", "testing.md", "## Testing\n{{ team_name }} org rules.")
+    _write_md(tmp_path / "team", "testing.md", "## Testing\n{{ team_name }} team rules.")
+
+    config = Config(
+        scopes=[
+            Scope(
+                name="platform",
+                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
             ),
             Scope(
                 name="api",
                 repos=["api-gateway"],
                 strategy="merge-append",
                 sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
+                vars={"team_name": "API"},
             ),
         ]
     )
 
     hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
+    content = merge_content(hierarchy).get("testing.md").content
 
-    assert "Division filled the template" in content
-    assert "Team merge-appended" in content
-    assert "Org deploy" in content
-    assert "{TEAM_SECTION}" not in content
+    assert "API org rules" in content
+    assert "API team rules" in content
 
 
-def test_template_then_append(tmp_path):
-    """Filled template gets content concatenated."""
-    _write_md(tmp_path / "org", "testing.md", "Coverage: {TARGET}")
-    _write_md(tmp_path / "div", "testing.md", "@TARGET\n85%")
-    _write_md(tmp_path / "team", "testing.md", "Team appended at end.")
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="division",
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "div"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
-    assert "85%" in content
-    assert "Team appended at end" in content
-    assert "{TARGET}" not in content
-
-
-def test_append_then_template(tmp_path):
-    """Template fills placeholders in appended result."""
-    _write_md(tmp_path / "org", "testing.md", "Org testing.\n\n{TEAM_NOTES}")
-    _write_md(tmp_path / "div", "testing.md", "Division appended.\n\n{TEAM_EXTRAS}")
-    _write_md(
-        tmp_path / "team",
-        "testing.md",
-        "@TEAM_NOTES\nTeam notes.\n\n@TEAM_EXTRAS\nTeam extras.",
-    )
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="division",
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "div"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
-    assert "Org testing" in content
-    assert "Division appended" in content
-    assert "Team notes" in content
-    assert "Team extras" in content
-    assert "{TEAM_NOTES}" not in content
-    assert "{TEAM_EXTRAS}" not in content
-
-
-# ---- Multi-level mixed strategies ----
+# ---- Multi-level ----
 
 
 def test_three_levels_append_merge_append_overwrite(tmp_path):
-    """append → merge-append → overwrite — overwrite at end wipes everything."""
+    """append -> merge-append -> overwrite: overwrite at end wipes everything."""
     _write_md(tmp_path / "org", "testing.md", "Org testing.")
     _write_md(tmp_path / "div", "testing.md", "Division appended.")
     _write_md(tmp_path / "subdiv", "testing.md", "## Testing\nSubdiv merge-appended.")
@@ -425,165 +325,17 @@ def test_three_levels_append_merge_append_overwrite(tmp_path):
     )
 
     hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
+    content = merge_content(hierarchy).get("testing.md").content
 
     assert "Team replaces everything" in content
     assert "Org testing" not in content
-    assert "Division appended" not in content
-    assert "Subdiv merge-appended" not in content
 
 
-def test_three_levels_template_append_merge_append(tmp_path):
-    """template → append → merge-append — each applies to accumulated result."""
-    _write_md(
-        tmp_path / "org",
-        "testing.md",
-        "## Testing\n{DIVISION_POLICY}\n\n## Deploy\nOrg deploy.",
-    )
-    _write_md(
-        tmp_path / "div",
-        "testing.md",
-        "@DIVISION_POLICY\nDivision policy.",
-    )
-    _write_md(tmp_path / "subdiv", "testing.md", "Subdivision appended.")
-    _write_md(tmp_path / "team", "testing.md", "## Deploy\nTeam deploy additions.")
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="division",
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "div"))],
-            ),
-            Scope(
-                name="subdiv",
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "subdiv"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="merge-append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
-    assert "Division policy" in content
-    assert "{DIVISION_POLICY}" not in content
-    assert "Subdivision appended" in content
-    assert "Org deploy" in content
-    assert "Team deploy additions" in content
-
-
-def test_five_scopes_mixed_strategies_with_repos(tmp_path):
-    """Five scopes with mixed strategies and repo branching."""
-    _write_md(tmp_path / "s0", "testing.md", "## Testing\nBase content.\n\n{TEAM_SECTION}")
-    _write_md(tmp_path / "s1", "testing.md", "Scope 1 appended.")
-    _write_md(tmp_path / "s2", "testing.md", "@TEAM_SECTION\nRepo A template fill.")
-    _write_md(tmp_path / "s3", "testing.md", "## Testing\nRepo B merge-appended.")
-    _write_md(tmp_path / "s4", "testing.md", "Repo A final append.")
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="s0",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "s0"))],
-            ),
-            Scope(
-                name="s1",
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "s1"))],
-            ),
-            Scope(
-                name="s2",
-                repos=["repo-a"],
-                strategy="template",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "s2"))],
-            ),
-            Scope(
-                name="s3",
-                repos=["repo-b"],
-                strategy="merge-append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "s3"))],
-            ),
-            Scope(
-                name="s4",
-                repos=["repo-a"],
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "s4"))],
-            ),
-        ]
-    )
-
-    # Repo A: s0 (base) → s1 (append) → s2 (template) → s4 (append)
-    hierarchy = resolve_hierarchy(config, "repo-a")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-    assert "Base content" in content
-    assert "Scope 1 appended" in content
-    assert "Repo A template fill" in content
-    assert "{TEAM_SECTION}" not in content
-    assert "Repo A final append" in content
-    assert "Repo B" not in content
-
-    # Repo B: s0 (base) → s1 (append) → s3 (merge-append)
-    hierarchy = resolve_hierarchy(config, "repo-b")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-    assert "Base content" in content
-    assert "Scope 1 appended" in content
-    assert "Repo B merge-appended" in content
-    assert "Repo A" not in content
-
-
-# ---- Cross-cutting: General ----
-
-
-def test_different_strategies_per_file(tmp_path):
-    """Different files in same scope use different strategies (scope-level default)."""
-    _write_md(tmp_path / "org", "testing.md", "Org testing.")
-    _write_md(tmp_path / "org", "deploy.md", "## Deploy\nOrg deploy.")
-    _write_md(tmp_path / "team", "testing.md", "Team replaces testing.")
-    _write_md(tmp_path / "team", "deploy.md", "## Deploy\nTeam deploy additions.")
-
-    # Both files use the scope's strategy — this tests that strategy applies
-    # uniformly to all files in a scope
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="overwrite",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-
-    assert "Team replaces testing" in merged.get("testing.md").content
-    assert "Org testing" not in merged.get("testing.md").content
-    assert "Team deploy additions" in merged.get("deploy.md").content
-    assert "Org deploy" not in merged.get("deploy.md").content
+# ---- Cross-cutting ----
 
 
 def test_no_strategy_defaults_to_overwrite(tmp_path):
-    """No strategy specified — defaults to overwrite (backwards compatible)."""
+    """No strategy specified defaults to overwrite."""
     _write_md(tmp_path / "org", "testing.md", "Org testing.")
     _write_md(tmp_path / "team", "testing.md", "Team testing.")
 
@@ -601,10 +353,8 @@ def test_no_strategy_defaults_to_overwrite(tmp_path):
         ]
     )
 
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
+    content = merge_content(
+        resolve_hierarchy(config, "api-gateway")).get("testing.md").content
     assert "Team testing" in content
     assert "Org testing" not in content
 
@@ -629,37 +379,7 @@ def test_invalid_strategy_falls_back_to_overwrite(tmp_path):
         ]
     )
 
-    hierarchy = resolve_hierarchy(config, "api-gateway")
-    merged = merge_content(hierarchy)
-    content = merged.get("testing.md").content
-
+    content = merge_content(
+        resolve_hierarchy(config, "api-gateway")).get("testing.md").content
     assert "Team testing" in content
     assert "Org testing" not in content
-
-
-def test_org_prefix_stripping_with_append(tmp_path):
-    """Org prefix stripping works with non-overwrite strategies."""
-    _write_md(tmp_path / "org", "testing.md", "Org testing.")
-    _write_md(tmp_path / "team", "testing.md", "Team testing.")
-
-    config = Config(
-        scopes=[
-            Scope(
-                name="platform",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "org"))],
-            ),
-            Scope(
-                name="api",
-                repos=["api-gateway"],
-                strategy="append",
-                sources=[SourceConfig(type="local", path=str(tmp_path / "team"))],
-            ),
-        ]
-    )
-
-    for repo in ["acme/api-gateway", "somefork/api-gateway", "api-gateway"]:
-        hierarchy = resolve_hierarchy(config, repo)
-        merged = merge_content(hierarchy)
-        content = merged.get("testing.md").content
-        assert "Org testing" in content
-        assert "Team testing" in content

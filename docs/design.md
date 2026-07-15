@@ -163,36 +163,36 @@ api specific overrides:
 
 Appended content is prefixed with `scope specific overrides:` so the agent knows which scope contributed each addition. The rest of the document is untouched.
 
-#### `template`
+### Vars (Jinja2 rendering)
 
-The base file declares placeholder slots using `{NAME}` syntax. Incoming scopes fill them with `@NAME` blocks.
+Scopes can declare `vars` which are rendered into content via Jinja2 after merge resolution. This is independent of the merge strategy.
 
 ```yaml
-# Org file (testing.md):
-## Testing
-{COVERAGE_TARGET} minimum coverage.
-{?TEAM_CONVENTIONS}
+# Config:
+- name: platform
+  sources:
+    - type: local
+      path: content/org/
 
-# Team file (testing.md, strategy: template):
-@COVERAGE_TARGET
-90%
-
-@TEAM_CONVENTIONS
-Contract tests required for all API endpoints.
+- name: api
+  repos: [api-gateway]
+  vars:
+    coverage_target: "90%"
+    team_conventions: "Contract tests required for all API endpoints."
 ```
 
-`@NAME` starts a filler block. Content runs until the next `@NAME` or end of file.
+```markdown
+# Content file (testing.md):
+## Testing
+{{ coverage_target | default("80%") }} minimum coverage.
+{% if team_conventions %}
+{{ team_conventions }}
+{% endif %}
+```
 
-**Placeholder sigils:**
+Vars accumulate through the hierarchy. Later scopes override earlier ones for the same key. Standard Jinja2 features (`default()` filter, `{% if %}` conditionals) work as expected.
 
-| Sigil | Fill behavior | If unfilled |
-|-------|--------------|-------------|
-| `{FOO}` | First filler wins | Left in output |
-| `{!FOO}` | Last filler wins | Left in output |
-| `{?FOO}` | First filler wins | Stripped |
-| `{!?FOO}` | Last filler wins | Stripped |
-
-Filled content can introduce new placeholders for downstream scopes to resolve (cascading).
+If no scope in the resolved hierarchy declares vars, content passes through unchanged.
 
 #### Mixed strategies
 
@@ -246,8 +246,7 @@ Source reader fetches content from each matching scope, in order:
 Merger combines using each scope's strategy:
   - acme is the base (first provider, no strategy applies)
   - api's testing.md merges with acme's testing.md using api's strategy
-    (overwrite replaces, append concatenates, merge-append merges by heading,
-     template fills placeholders)
+    (overwrite replaces, append concatenates, merge-append merges by heading)
   - acme's code-review.md passes through (no api override)
   |
   v
@@ -299,9 +298,8 @@ The architecture is designed so that SEP-2640 support is an additive layer, not 
 - `list_repos` tool: returns all repos with repo-specific scopes
 - `list_tools_for_repo(repo)` tool: shows per-tool provenance and overrides
 - `context_version` tool: reports engine version, auto-discovered wrapper packages, and content metadata from `context-metadata.yml`
-- Pluggable merge strategies: overwrite (default), append, merge-append, template
-- Template placeholder sigils: `{FOO}`, `{!FOO}`, `{?FOO}`, `{!?FOO}`
-- `@NAME` filler block syntax for template strategy
+- Pluggable merge strategies: overwrite (default), append, merge-append
+- Jinja2 variable rendering via `vars` in scope config
 - `context-metadata.yml`: optional flat key/value file alongside config for content metadata
 
 ### Phase 3.6: Per-file merge strategy (future)

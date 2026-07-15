@@ -20,6 +20,7 @@ class HierarchyLevel:
     name: str
     sources: list[SourceConfig] = field(default_factory=list)
     strategy: str = "overwrite"
+    vars: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -44,13 +45,14 @@ def resolve_hierarchy(config: Config, repo: str) -> ResolvedHierarchy:
     resolved = ResolvedHierarchy(repo=repo)
 
     for scope in config.scopes_for_repo(repo):
-        if scope.sources:
+        if scope.sources or scope.vars:
             resolved.levels.append(
                 HierarchyLevel(
                     level=scope.name,
                     name=scope.name,
                     sources=list(scope.sources),
                     strategy=scope.strategy,
+                    vars=dict(scope.vars),
                 )
             )
 
