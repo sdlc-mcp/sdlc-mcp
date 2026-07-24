@@ -10,7 +10,6 @@ Reports three layers of version info:
 from sdlc_mcp.discovery import get_context_version
 from sdlc_mcp.sources import local as _local  # noqa: F401
 
-
 # ---- Helpers ----
 
 

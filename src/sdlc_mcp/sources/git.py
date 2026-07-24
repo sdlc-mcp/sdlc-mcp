@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from . import ContentItem, register_source
 from ..repo import CACHE_DIR, cache_key, ensure_cloned
+from . import ContentItem, register_source
 
 if TYPE_CHECKING:
     from ..config import SourceConfig

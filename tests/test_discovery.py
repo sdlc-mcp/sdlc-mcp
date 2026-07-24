@@ -10,7 +10,6 @@ from sdlc_mcp.config import Config, Scope, SourceConfig
 from sdlc_mcp.discovery import ToolOverview, list_repos, list_tools_for_repo
 from sdlc_mcp.sources import local as _local  # noqa: F401
 
-
 # ---- Helpers ----
 
 
