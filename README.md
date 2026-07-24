@@ -180,6 +180,7 @@ When these are not set, the server runs unauthenticated over transport streamabl
 ## Docs
 
 - [Getting Started](docs/getting-started.md) — install, run, try the examples
+- [Extending sdlc-mcp](docs/extending.md) — create a wrapper package for your organization
 - [Developer Guide](docs/developer-guide.md) — project structure, testing, contributing
 - [Design Doc](docs/design.md) — architecture, scope resolution, strategy semantics
 - [Test Matrix](docs/merge-strategy-test-matrix.md) — full merge strategy test coverage

@@ -6,20 +6,25 @@ import logging
 import os
 from pathlib import Path
 
+import yaml
 from fastmcp import FastMCP
 from fastmcp.tools import Tool
 
 from .config import Config, load_config
 from .discovery import (
     get_context_version as _get_context_version,
+)
+from .discovery import (
     list_repos as _list_repos,
+)
+from .discovery import (
     list_tools_for_repo as _list_tools_for_repo,
 )
 from .hierarchy import resolve_hierarchy
 from .merge import merge_content, merge_content_for_category
 
 # Ensure source adapters are registered
-from .sources import git as _git, local as _local  # noqa: F401
+from .sources import git as _git  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +200,29 @@ def register_content_tools() -> None:
     logger.info("Registered %d content tools", len(merged.items))
 
 
+def _make_list_skills_tool():
+    """Create a tool function that lists available skills from the registry."""
+
+    def tool_fn() -> str:
+        registry_path = Path(__file__).resolve().parent.parent.parent / "skills" / "registry.yml"
+        if not registry_path.exists():
+            return "No skills registry found."
+        with open(registry_path) as f:
+            data = yaml.safe_load(f)
+        if not data or "skills" not in data:
+            return "No skills registered."
+        lines = []
+        for skill in data["skills"]:
+            lines.append(
+                f"{skill['name']}: {skill['description']} [{skill.get('category', 'general')}]"
+            )
+        return "\n".join(lines)
+
+    tool_fn.__name__ = "list_skills"
+    tool_fn.__qualname__ = tool_fn.__name__
+    return tool_fn
+
+
 def register_discovery_tools() -> None:
     fn = _make_list_repos_tool()
     tool = Tool.from_function(
@@ -222,3 +250,12 @@ def register_discovery_tools() -> None:
     )
     mcp.add_tool(tool)
     logger.info("Registered context_version discovery tool")
+
+    fn = _make_list_skills_tool()
+    tool = Tool.from_function(
+        fn,
+        name="list_skills",
+        description="List available skills for working with sdlc-mcp (scaffolding, content authoring, troubleshooting)",
+    )
+    mcp.add_tool(tool)
+    logger.info("Registered list_skills discovery tool")

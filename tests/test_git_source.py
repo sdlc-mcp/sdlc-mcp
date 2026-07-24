@@ -5,8 +5,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from sdlc_mcp.config import SourceConfig
-from sdlc_mcp.sources import local as _local  # noqa: F401
 from sdlc_mcp.repo import cache_key as _cache_key
+from sdlc_mcp.sources import local as _local  # noqa: F401
 from sdlc_mcp.sources.git import GitSource
 
 
@@ -16,8 +16,8 @@ def _create_bare_repo(tmp_path: Path, files: dict[str, str]) -> str:
     work.mkdir()
 
     subprocess.run(["git", "init", str(work)], capture_output=True, check=True)
-    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=work, capture_output=True)
-    subprocess.run(["git", "config", "user.name", "Test"], cwd=work, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "test@test.com"], cwd=work, capture_output=True, check=True)
+    subprocess.run(["git", "config", "user.name", "Test"], cwd=work, capture_output=True, check=True)
 
     for relpath, content in files.items():
         fpath = work / relpath

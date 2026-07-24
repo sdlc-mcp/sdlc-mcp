@@ -1,0 +1,24 @@
+# sdlc-mcp Skills Registry
+# Skills are Claude Code instruction files that help users work with sdlc-mcp.
+# Install a skill: make install-skill SKILL=<name>
+
+skills:
+  - name: extend-sdlc-mcp
+    description: Create a new wrapper package that delivers organizational context to AI agents
+    file: extend-sdlc-mcp.md
+    category: scaffolding
+
+  - name: add-content
+    description: Add new content files to an existing wrapper package
+    file: add-content.md
+    category: authoring
+
+  - name: add-team
+    description: Add a new team scope to an existing wrapper configuration
+    file: add-team.md
+    category: configuration
+
+  - name: debug-hierarchy
+    description: Debug content hierarchy resolution for a specific repo
+    file: debug-hierarchy.md
+    category: troubleshooting

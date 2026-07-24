@@ -9,7 +9,6 @@ from sdlc_mcp.hierarchy import resolve_hierarchy
 from sdlc_mcp.merge import merge_content
 from sdlc_mcp.sources import local as _local  # noqa: F401
 
-
 # ---- Helpers ----
 
 

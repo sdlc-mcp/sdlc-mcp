@@ -1,6 +1,6 @@
 SDLC_MCP_CONFIG ?= ./examples/simple/config.yml
 
-.PHONY: help install install-dependencies lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty context-version
+.PHONY: help install install-dependencies lint lint-fix format test test-no-git serve serve-http smoke-stdio smoke-http list-tools call call-pretty context-version new-project install-skill list-skills
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
@@ -55,3 +55,25 @@ call-pretty: ## Call a tool with formatted output (same args as call)
 
 context-version: ## Show context version info
 	@make call-pretty TOOL=context_version
+
+new-project: ## Scaffold a wrapper package (usage: make new-project NAME=my-org-mcp)
+ifndef NAME
+	$(error NAME is required. Usage: make new-project NAME=my-org-mcp [ORG="Acme Corp"] [TEAMS="api,frontend"])
+endif
+	uv run python scripts/scaffold.py --name $(NAME) $(if $(ORG),--org "$(ORG)") $(if $(TEAMS),--teams "$(TEAMS)")
+	@echo ""
+	@echo "Next steps:"
+	@echo "  cd $(NAME)"
+	@echo "  make install"
+	@echo "  make serve"
+
+install-skill: ## Install a skill (usage: make install-skill SKILL=extend-sdlc-mcp)
+ifndef SKILL
+	$(error SKILL is required. Usage: make install-skill SKILL=extend-sdlc-mcp)
+endif
+	@mkdir -p .claude/skills
+	@cp skills/$(SKILL).md .claude/skills/$(SKILL).md
+	@echo "Installed skill '$(SKILL)' to .claude/skills/$(SKILL).md"
+
+list-skills: ## List available skills from the registry
+	@uv run python -c "import yaml; data=yaml.safe_load(open('skills/registry.yml')); [print(f\"  {s['name']:30s} {s['description']}\") for s in data['skills']]"
